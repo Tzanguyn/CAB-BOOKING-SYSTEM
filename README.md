@@ -1,6 +1,7 @@
 # ĐỒ ÁN: CAB BOOKING SYSTEM
 ## Cấu trúc thư mục dự án
 
+```text
 cab-booking-system/
 │
 ├── clients/                         # Tầng giao diện (View)

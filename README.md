@@ -127,7 +127,7 @@ cab-booking-system/
 - `GET /auth/profile` - Get user profile
 - `PUT /auth/profile` - Update user profile
 
-### ✅ 2. User Service (Port: 3010)
+### ✅ 2. User Service (Port: 3002)
 **Technology:** Node.js, Express, MongoDB, Redis, RabbitMQ
 
 **Key Features:**
@@ -146,7 +146,7 @@ cab-booking-system/
 - `GET /users/loyalty` - Get loyalty status
 - `POST /users/favorites` - Add favorite location
 
-### ✅ 3. Driver Service (Port: 3004)
+### ✅ 3. Driver Service (Port: 3003)
 **Technology:** Node.js, Express, MongoDB, Redis, RabbitMQ
 
 **Key Features:**
@@ -165,7 +165,7 @@ cab-booking-system/
 - `GET /drivers/profile` - Get driver profile
 - `GET /drivers/earnings` - Get earnings data
 
-### ✅ 4. Booking Service (Port: 3003)
+### ✅ 4. Booking Service (Port: 3004)
 **Technology:** Node.js, Express, MongoDB, RabbitMQ
 
 **Key Features:**
@@ -202,8 +202,23 @@ cab-booking-system/
 - `PUT /rides/:id/status` - Update ride status
 - `GET /rides/:id` - Get ride details
 - `POST /rides/:id/emergency` - Emergency handling
+### ✅ 6. Pricing Service (Port: 3006)
+**Technology:** Node.js, Express, MongoDB, AI/ML
 
-### ✅ 6. Payment Service (Port: 3006)
+**Key Features:**
+- 🤖 **AI Dynamic Pricing** với machine learning
+- 📈 **Demand Prediction** algorithms
+- 🚗 **Surge Pricing** dựa trên real-time factors
+- 📊 **Historical Analysis** cho pricing optimization
+- 🎯 **Personalized Pricing** dựa trên user behavior
+- 💰 **Revenue Optimization** và yield management
+
+**API Endpoints:**
+- `POST /pricing/calculate` - Calculate ride price
+- `GET /pricing/surge` - Get surge multiplier
+- `POST /pricing/optimize` - Run pricing optimization
+  
+### ✅ 7. Payment Service (Port: 3007)
 **Technology:** Node.js, Express, MongoDB, Stripe/PayPal
 
 **Key Features:**
@@ -219,40 +234,8 @@ cab-booking-system/
 - `POST /payments/refund` - Process refund
 - `GET /payments/:id` - Get payment details
 - `GET /payments/user/:userId` - Get user payments
-
-### ✅ 7. Notification Service (Port: 3007)
-**Technology:** Node.js, Express, Email/SMS APIs, RabbitMQ
-
-**Key Features:**
-- 📧 **Multi-channel Notifications** (Email, SMS, Push)
-- 📝 **Template Engine** cho dynamic messages
-- 📋 **Queue Processing** với RabbitMQ
-- 📊 **Delivery Analytics** và tracking
-- 🌍 **Multi-language Support** với i18n
-- 📱 **Device Targeting** cho push notifications
-
-**API Endpoints:**
-- `POST /notifications/send` - Send notification
-- `GET /notifications/:id` - Get notification status
-- `POST /notifications/bulk` - Send bulk notifications
-
-### ✅ 8. Pricing Service (Port: 3008)
-**Technology:** Node.js, Express, MongoDB, AI/ML
-
-**Key Features:**
-- 🤖 **AI Dynamic Pricing** với machine learning
-- 📈 **Demand Prediction** algorithms
-- 🚗 **Surge Pricing** dựa trên real-time factors
-- 📊 **Historical Analysis** cho pricing optimization
-- 🎯 **Personalized Pricing** dựa trên user behavior
-- 💰 **Revenue Optimization** và yield management
-
-**API Endpoints:**
-- `POST /pricing/calculate` - Calculate ride price
-- `GET /pricing/surge` - Get surge multiplier
-- `POST /pricing/optimize` - Run pricing optimization
-
-### ✅ 9. Review Service (Port: 3009)
+  
+### ✅ 8. Review Service (Port: 3008)
 **Technology:** Node.js, Express, MongoDB, RabbitMQ
 
 **Key Features:**
@@ -270,6 +253,23 @@ cab-booking-system/
 - `PUT /reviews/:id` - Update review
 - `POST /reviews/:id/helpful` - Add helpful vote
 - `POST /reviews/:id/response` - Add response
+### ✅ 9. Notification Service (Port: 3009)
+**Technology:** Node.js, Express, Email/SMS APIs, RabbitMQ
+
+**Key Features:**
+- 📧 **Multi-channel Notifications** (Email, SMS, Push)
+- 📝 **Template Engine** cho dynamic messages
+- 📋 **Queue Processing** với RabbitMQ
+- 📊 **Delivery Analytics** và tracking
+- 🌍 **Multi-language Support** với i18n
+- 📱 **Device Targeting** cho push notifications
+
+**API Endpoints:**
+- `POST /notifications/send` - Send notification
+- `GET /notifications/:id` - Get notification status
+- `POST /notifications/bulk` - Send bulk notifications
+
+
 
 ---
 

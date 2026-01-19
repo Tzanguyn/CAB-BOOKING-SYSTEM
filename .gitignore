@@ -31,6 +31,7 @@ logs/
 # --- IDE & System Files ---
 .vscode/
 .idea/
+.history/
 .DS_Store
 Thumbs.db
 *.suo

@@ -1,0 +1,32 @@
+{
+  "name": "ride-service",
+  "version": "1.0.0",
+  "description": "Ride Management Service with State Machine for CAB Booking System",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "cab-booking",
+    "ride",
+    "state-machine",
+    "microservice"
+  ],
+  "author": "CAB Booking Team",
+  "license": "ISC",
+  "dependencies": {
+    "amqplib": "^0.10.3",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "mongoose": "^8.0.0",
+    "redis": "^5.10.0",
+    "xstate": "^4.38.2",
+    "@cab-booking/shared": "file:../../shared"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

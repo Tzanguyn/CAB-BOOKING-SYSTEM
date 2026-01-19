@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: cab-booking-rabbitmq
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI port
+    environment:
+      RABBITMQ_DEFAULT_USER: cab_admin
+      RABBITMQ_DEFAULT_PASS: cab123!@#
+      RABBITMQ_DEFAULT_VHOST: cab-booking
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq-init.sh:/docker-entrypoint-initdb.d/rabbitmq-init.sh
+    networks:
+      - cab-booking-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  rabbitmq_data:
+
+networks:
+  cab-booking-network:
+    driver: bridge

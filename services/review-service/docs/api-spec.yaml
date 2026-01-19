@@ -1,0 +1,737 @@
+openapi: 3.0.3
+info:
+  title: CAB Booking System - Review Service API
+  description: |
+    Review and Rating Service for CAB Booking System.
+
+    This service manages reviews and ratings for rides, drivers, and passengers.
+    It provides comprehensive review functionality including moderation, analytics,
+    and real-time event processing.
+  version: 1.0.0
+  contact:
+    name: CAB Booking System Team
+    email: support@cab-booking.com
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3009/api/reviews
+    description: Development server
+  - url: https://api.cab-booking.com/reviews
+    description: Production server
+
+security:
+  - bearerAuth: []
+  - apiKeyAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Check service health and connectivity
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /metrics:
+    get:
+      summary: Service metrics
+      description: Get service performance metrics and statistics
+      tags:
+        - Monitoring
+      security:
+        - apiKeyAuth: []
+      responses:
+        '200':
+          description: Metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsResponse'
+
+  /{subjectType}/{subjectId}:
+    get:
+      summary: Get reviews for subject
+      description: Retrieve paginated reviews for a specific subject (ride, driver, passenger)
+      tags:
+        - Reviews
+      parameters:
+        - name: subjectType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [ride, driver, passenger]
+          description: Type of subject being reviewed
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID of the subject
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+          description: Number of reviews per page
+        - name: minRating
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+          description: Minimum rating filter
+        - name: maxRating
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+          description: Maximum rating filter
+        - name: hasResponse
+          in: query
+          schema:
+            type: boolean
+          description: Filter reviews with/without responses
+        - name: tags
+          in: query
+          schema:
+            type: string
+          description: Comma-separated list of tags
+      responses:
+        '200':
+          description: Reviews retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedReviewsResponse'
+
+  /{subjectType}/{subjectId}/stats:
+    get:
+      summary: Get review statistics
+      description: Get aggregated statistics for reviews of a subject
+      tags:
+        - Reviews
+      parameters:
+        - name: subjectType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [ride, driver, passenger]
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewStatsResponse'
+
+  /review/{reviewId}:
+    get:
+      summary: Get specific review
+      description: Retrieve a single review by ID
+      tags:
+        - Reviews
+      parameters:
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Review retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SingleReviewResponse'
+        '404':
+          description: Review not found
+
+  /trending:
+    get:
+      summary: Get trending reviews
+      description: Get most helpful reviews from recent period
+      tags:
+        - Reviews
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+        - name: days
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+            default: 30
+      responses:
+        '200':
+          description: Trending reviews retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrendingReviewsResponse'
+
+  /:
+    post:
+      summary: Create review
+      description: Create a new review for a subject
+      tags:
+        - Reviews
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReviewRequest'
+      responses:
+        '201':
+          description: Review created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SingleReviewResponse'
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+
+  /{reviewId}:
+    put:
+      summary: Update review
+      description: Update an existing review (owner only, within 24 hours)
+      tags:
+        - Reviews
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateReviewRequest'
+      responses:
+        '200':
+          description: Review updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SingleReviewResponse'
+        '403':
+          description: Forbidden - not review owner
+        '404':
+          description: Review not found
+
+    delete:
+      summary: Delete review
+      description: Soft delete a review (owner only)
+      tags:
+        - Reviews
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Review deleted successfully
+        '403':
+          description: Forbidden - not review owner
+        '404':
+          description: Review not found
+
+  /{reviewId}/helpful:
+    post:
+      summary: Add helpful vote
+      description: Mark a review as helpful
+      tags:
+        - Reviews
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Vote added successfully
+        '404':
+          description: Review not found
+
+  /{reviewId}/response:
+    post:
+      summary: Add review response
+      description: Add a response to a review (driver/company)
+      tags:
+        - Reviews
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddResponseRequest'
+      responses:
+        '200':
+          description: Response added successfully
+        '403':
+          description: Forbidden - not authorized to respond
+
+  /user/reviews:
+    get:
+      summary: Get user reviews
+      description: Get reviews created by the authenticated user
+      tags:
+        - User
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: User reviews retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedReviewsResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "healthy"
+        timestamp:
+          type: string
+          format: date-time
+        data:
+          $ref: '#/components/schemas/HealthData'
+
+    HealthData:
+      type: object
+      properties:
+        service:
+          type: string
+          example: "review-service"
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        uptime:
+          type: number
+          example: 123.45
+        version:
+          type: string
+          example: "1.0.0"
+        environment:
+          type: string
+          example: "development"
+        memory:
+          type: object
+          properties:
+            used:
+              type: integer
+              example: 45
+            total:
+              type: integer
+              example: 128
+            external:
+              type: integer
+              example: 2
+
+    MetricsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Metrics retrieved successfully"
+        timestamp:
+          type: string
+          format: date-time
+        data:
+          $ref: '#/components/schemas/MetricsData'
+
+    MetricsData:
+      type: object
+      properties:
+        service:
+          type: string
+        uptime:
+          type: number
+        memory:
+          type: object
+        cpu:
+          type: object
+        database:
+          type: object
+        messageQueue:
+          type: object
+        reviews:
+          type: object
+
+    PaginatedReviewsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Review'
+            pagination:
+              $ref: '#/components/schemas/PaginationInfo'
+            filters:
+              type: object
+
+    SingleReviewResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        data:
+          $ref: '#/components/schemas/Review'
+
+    ReviewStatsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        data:
+          $ref: '#/components/schemas/ReviewStats'
+
+    TrendingReviewsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Review'
+
+    CreateReviewRequest:
+      type: object
+      required:
+        - subjectType
+        - subjectId
+        - rating
+      properties:
+        subjectType:
+          type: string
+          enum: [ride, driver, passenger]
+        subjectId:
+          type: string
+        reviewerType:
+          type: string
+          enum: [passenger, driver]
+          default: passenger
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        title:
+          type: string
+          maxLength: 100
+        comment:
+          type: string
+          maxLength: 1000
+        detailedRatings:
+          type: object
+          properties:
+            driverRating:
+              type: integer
+              minimum: 1
+              maximum: 5
+            vehicleRating:
+              type: integer
+              minimum: 1
+              maximum: 5
+            comfortRating:
+              type: integer
+              minimum: 1
+              maximum: 5
+            safetyRating:
+              type: integer
+              minimum: 1
+              maximum: 5
+            punctualityRating:
+              type: integer
+              minimum: 1
+              maximum: 5
+        tags:
+          type: array
+          items:
+            type: string
+        source:
+          type: string
+          enum: [mobile_app, web_app, api, admin]
+          default: api
+
+    UpdateReviewRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 100
+        comment:
+          type: string
+          maxLength: 1000
+        tags:
+          type: array
+          items:
+            type: string
+
+    AddResponseRequest:
+      type: object
+      required:
+        - responderType
+        - responseText
+      properties:
+        responderType:
+          type: string
+          enum: [driver, company]
+        responseText:
+          type: string
+          minLength: 1
+          maxLength: 500
+
+    Review:
+      type: object
+      properties:
+        reviewId:
+          type: string
+        subjectType:
+          type: string
+          enum: [ride, driver, passenger]
+        subjectId:
+          type: string
+        reviewerType:
+          type: string
+          enum: [passenger, driver]
+        reviewerId:
+          type: string
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        title:
+          type: string
+        comment:
+          type: string
+        detailedRatings:
+          type: object
+        tags:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, flagged]
+        sentiment:
+          type: string
+          enum: [positive, neutral, negative]
+        sentimentScore:
+          type: number
+          minimum: -1
+          maximum: 1
+        helpfulVotes:
+          type: integer
+          minimum: 0
+        totalVotes:
+          type: integer
+          minimum: 0
+        response:
+          $ref: '#/components/schemas/ReviewResponse'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ReviewResponse:
+      type: object
+      properties:
+        responderId:
+          type: string
+        responderType:
+          type: string
+          enum: [driver, company]
+        responseText:
+          type: string
+        respondedAt:
+          type: string
+          format: date-time
+
+    ReviewStats:
+      type: object
+      properties:
+        totalReviews:
+          type: integer
+          minimum: 0
+        averageRating:
+          type: number
+          minimum: 0
+          maximum: 5
+        ratingDistribution:
+          type: object
+          properties:
+            1:
+              type: integer
+              minimum: 0
+            2:
+              type: integer
+              minimum: 0
+            3:
+              type: integer
+              minimum: 0
+            4:
+              type: integer
+              minimum: 0
+            5:
+              type: integer
+              minimum: 0
+
+    PaginationInfo:
+      type: object
+      properties:
+        currentPage:
+          type: integer
+          minimum: 1
+        totalPages:
+          type: integer
+          minimum: 0
+        totalReviews:
+          type: integer
+          minimum: 0
+        hasNext:
+          type: boolean
+        hasPrev:
+          type: boolean
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        errorCode:
+          type: string
+        errors:
+          type: array
+          items:
+            type: string

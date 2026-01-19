@@ -1,0 +1,830 @@
+version: '3.8'
+
+# CAB Booking System - Docker Compose Configuration
+# ================================================
+#
+# Profiles:
+#   - base: Core infrastructure (databases, message broker)
+#   - development: Development environment with hot reload
+#   - production: Production environment
+#   - full: Full production with frontend
+#
+# Usage:
+#   docker-compose --profile base up -d                    # Infrastructure only
+#   docker-compose --profile development up -d             # Development setup
+#   docker-compose --profile production up -d              # Production setup
+#   docker-compose --profile full up -d                    # Full production
+
+services:
+  # ============================================================================
+  # INFRASTRUCTURE SERVICES (Base Profile)
+  # ============================================================================
+
+  # Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: cab-booking-rabbitmq
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI port
+    environment:
+      RABBITMQ_DEFAULT_USER: cab_admin
+      RABBITMQ_DEFAULT_PASS: cab123!@#
+      RABBITMQ_DEFAULT_VHOST: cab-booking
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./message-broker/rabbitmq/rabbitmq-init.sh:/docker-entrypoint-initdb.d/rabbitmq-init.sh
+    networks:
+      - cab-booking-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - base
+      - development
+      - production
+      - full
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: cab-booking-postgres
+    environment:
+      POSTGRES_DB: cab_booking
+      POSTGRES_USER: cab_user
+      POSTGRES_PASSWORD: cab_pass123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - cab-booking-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cab_user -d cab_booking"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - base
+      - development
+      - production
+      - full
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:7-jammy
+    container_name: cab-booking-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: cab_admin
+      MONGO_INITDB_ROOT_PASSWORD: cab_pass123
+      MONGO_INITDB_DATABASE: cab_booking
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./database/mongodb/init.js:/docker-entrypoint-initdb.d/init.js
+    networks:
+      - cab-booking-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - base
+      - development
+      - production
+      - full
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: cab-booking-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./database/redis/redis.conf:/etc/redis/redis.conf
+    command: redis-server /etc/redis/redis.conf
+    networks:
+      - cab-booking-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - base
+      - development
+      - production
+      - full
+
+  # ============================================================================
+  # MICROSERVICES
+  # ============================================================================
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: ${DOCKERFILE:-Dockerfile}
+    container_name: cab-booking-api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cab-booking-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - development
+      - production
+      - full
+
+  # Authentication Service
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: ${DOCKERFILE:-Dockerfile}
+    container_name: cab-booking-auth-service
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-key}
+      - JWT_EXPIRE=${JWT_EXPIRE:-15m}
+      - REFRESH_TOKEN_EXPIRE=${REFRESH_TOKEN_EXPIRE:-7d}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cab-booking-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/auth/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - development
+      - production
+      - full
+
+  # User Service
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: ${DOCKERFILE:-Dockerfile}
+    container_name: cab-booking-user-service
+    ports:
+      - "3010:3010"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - MONGODB_URL=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_booking
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cab-booking-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3010/api/users/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - development
+      - production
+      - full
+
+  # Driver Service
+  driver-service:
+    build:
+      context: ./services/driver-service
+      dockerfile: ${DOCKERFILE:-Dockerfile}
+    container_name: cab-booking-driver-service
+    ports:
+      - "3004:3004"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - MONGODB_URL=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_booking
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cab-booking-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3004/api/drivers/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - development
+      - production
+      - full
+
+  # Booking Service
+  booking-service:
+    build:
+      context: ./services/booking-service
+      dockerfile: ${DOCKERFILE:-Dockerfile}
+    container_name: cab-booking-booking-service
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
+      - MONGODB_URL=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_booking
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cab-booking-network
+    restart: unless-stopped
+    profiles:
+      - development
+      - production
+      - full
+
+  # Ride Service
+  ride-service:
+    build:
+      context: ./services/ride-service
+      dockerfile: ${DOCKERFILE:-Dockerfile}
+    container_name: cab-booking-ride-service
+    ports:
+      - "3005:3005"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - MONGODB_URL=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_booking
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cab-booking-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3005/api/rides/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - development
+      - production
+      - full
+
+  # Payment Service
+  payment-service:
+    build:
+      context: ./services/payment-service
+      dockerfile: ${DOCKERFILE:-Dockerfile}
+    container_name: cab-booking-payment-service
+    ports:
+      - "3006:3006"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - MONGODB_URL=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_booking
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cab-booking-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3006/api/payments/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - development
+      - production
+      - full
+
+  # Pricing Service
+  pricing-service:
+    build:
+      context: ./services/pricing-service
+      dockerfile: ${DOCKERFILE:-Dockerfile}
+    container_name: cab-booking-pricing-service
+    ports:
+      - "3008:3008"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - MONGODB_URL=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_booking
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cab-booking-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3008/api/pricing/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - development
+      - production
+      - full
+
+  # Notification Service
+  notification-service:
+    build:
+      context: ./services/notification-service
+      dockerfile: ${DOCKERFILE:-Dockerfile}
+    container_name: cab-booking-notification-service
+    ports:
+      - "3007:3007"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - MONGODB_URL=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_booking
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - TWILIO_SID=${TWILIO_SID}
+      - TWILIO_TOKEN=${TWILIO_TOKEN}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - FIREBASE_SERVICE_ACCOUNT=${FIREBASE_SERVICE_ACCOUNT}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cab-booking-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3007/api/notifications/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - development
+      - production
+      - full
+
+  # Review Service
+  review-service:
+    build:
+      context: ./services/review-service
+      dockerfile: ${DOCKERFILE:-Dockerfile}
+    container_name: cab-booking-review-service
+    ports:
+      - "3009:3009"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - MONGODB_URL=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_booking
+      - RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+      - CORS_ORIGIN=http://localhost:8080,http://localhost:3000
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cab-booking-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3009/api/reviews/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    profiles:
+      - development
+      - production
+      - full
+
+  # ============================================================================
+  # REAL-TIME SERVICES
+  # ============================================================================
+
+  # Real-time Socket Server
+  realtime-socket:
+    build:
+      context: ./realtime/socket-server
+      dockerfile: ${DOCKERFILE:-Dockerfile}
+    container_name: cab-booking-realtime-socket
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cab-booking-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - development
+      - production
+      - full
+
+  # ============================================================================
+  # FRONTEND APPLICATIONS (Full Profile Only)
+  # ============================================================================
+
+  # Customer Application
+  customer-app:
+    build:
+      context: ./clients/customer-app
+      dockerfile: ${DOCKERFILE:-Dockerfile}
+    container_name: cab-booking-customer-app
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - VITE_API_URL=http://localhost:3000
+      - VITE_SOCKET_URL=http://localhost:3002
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+      realtime-socket:
+        condition: service_healthy
+    networks:
+      - cab-booking-network
+    restart: unless-stopped
+    profiles:
+      - full
+
+# ============================================================================
+# VOLUMES & NETWORKS
+# ============================================================================
+
+volumes:
+  postgres_data:
+    driver: local
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+
+networks:
+  cab-booking-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: cab-booking-rabbitmq
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI port
+    environment:
+      RABBITMQ_DEFAULT_USER: cab_admin
+      RABBITMQ_DEFAULT_PASS: cab123!@#
+      RABBITMQ_DEFAULT_VHOST: cab-booking
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./message-broker/rabbitmq/rabbitmq-init.sh:/docker-entrypoint-initdb.d/rabbitmq-init.sh
+    networks:
+      - cab-booking-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # Databases
+  postgres:
+    image: postgres:15-alpine
+    container_name: cab-booking-postgres
+    environment:
+      POSTGRES_DB: cab_booking
+      POSTGRES_USER: cab_user
+      POSTGRES_PASSWORD: cab_pass123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - cab-booking-network
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:7-jammy
+    container_name: cab-booking-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: cab_admin
+      MONGO_INITDB_ROOT_PASSWORD: cab_pass123
+      MONGO_INITDB_DATABASE: cab_booking
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./database/mongodb/init.js:/docker-entrypoint-initdb.d/init.js
+    networks:
+      - cab-booking-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: cab-booking-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./database/redis/redis.conf:/etc/redis/redis.conf
+    command: redis-server /etc/redis/redis.conf
+    networks:
+      - cab-booking-network
+    restart: unless-stopped
+
+  # API Gateway
+  api-gateway:
+    build: ./api-gateway
+    container_name: cab-booking-api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - rabbitmq
+      - redis
+    networks:
+      - cab-booking-network
+    restart: unless-stopped
+
+  # Microservices
+  auth-service:
+    build: ./services/auth-service
+    container_name: cab-booking-auth-service
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    networks:
+      - cab-booking-network
+    restart: unless-stopped
+
+  booking-service:
+    build: ./services/booking-service
+    container_name: cab-booking-booking-service
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
+      - MONGODB_URL=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_booking
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+    depends_on:
+      - postgres
+      - mongodb
+      - redis
+      - rabbitmq
+    networks:
+      - cab-booking-network
+    restart: unless-stopped
+
+  driver-service:
+    build: ./services/driver-service
+    container_name: cab-booking-driver-service
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
+      - MONGODB_URL=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_booking
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+    depends_on:
+      - postgres
+      - mongodb
+      - redis
+      - rabbitmq
+    networks:
+      - cab-booking-network
+    restart: unless-stopped
+
+  ride-service:
+    build: ./services/ride-service
+    container_name: cab-booking-ride-service
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
+      - MONGODB_URL=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_booking
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+    depends_on:
+      - postgres
+      - mongodb
+      - redis
+      - rabbitmq
+    networks:
+      - cab-booking-network
+    restart: unless-stopped
+
+  payment-service:
+    build: ./services/payment-service
+    container_name: cab-booking-payment-service
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    networks:
+      - cab-booking-network
+    restart: unless-stopped
+
+  notification-service:
+    build: ./services/notification-service
+    container_name: cab-booking-notification-service
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
+      - RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+    depends_on:
+      - postgres
+      - rabbitmq
+    networks:
+      - cab-booking-network
+    restart: unless-stopped
+
+  pricing-service:
+    build: ./services/pricing-service
+    container_name: cab-booking-pricing-service
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    networks:
+      - cab-booking-network
+    restart: unless-stopped
+
+  review-service:
+    build: ./services/review-service
+    container_name: cab-booking-review-service
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
+      - MONGODB_URL=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_booking
+    depends_on:
+      - postgres
+      - mongodb
+    networks:
+      - cab-booking-network
+    restart: unless-stopped
+
+  user-service:
+    build: ./services/user-service
+    container_name: cab-booking-user-service
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - cab-booking-network
+    restart: unless-stopped
+
+  # Real-time Socket Server
+  realtime-socket:
+    build: ./realtime/socket-server
+    container_name: cab-booking-realtime-socket
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+    depends_on:
+      - redis
+      - rabbitmq
+    networks:
+      - cab-booking-network
+    restart: unless-stopped
+
+  # Review Service
+  review-service:
+    build:
+      context: ./services/review-service
+      dockerfile: Dockerfile
+    container_name: cab-booking-review-service
+    ports:
+      - "3009:3009"
+    environment:
+      - NODE_ENV=production
+      - PORT=3009
+      - MONGODB_URL=mongodb://mongodb:27017/cab_booking?authSource=admin
+      - RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+      - CORS_ORIGIN=http://localhost:8080,http://localhost:3000
+    depends_on:
+      - mongodb
+      - rabbitmq
+    networks:
+      - cab-booking-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3009/api/reviews/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  rabbitmq_data:
+  postgres_data:
+  mongodb_data:
+  redis_data:
+
+networks:
+  cab-booking-network:
+    driver: bridge

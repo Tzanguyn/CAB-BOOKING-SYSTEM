@@ -1,21 +1,110 @@
 const express = require('express');
+const AuthController = require('../controllers/authController');
+const {
+  authenticateToken,
+  requireAdmin,
+  rateLimit,
+  securityHeaders,
+  requestLogger,
+  validateInput
+} = require('../middlewares/authMiddleware');
+
 const router = express.Router();
-const authController = require('../controllers/authController');
-const authMiddleware = require('../middlewares/authMiddleware');
+const authController = new AuthController();
 
-// Định nghĩa route: POST /register
-router.post('/register', authController.register);
+// Initialize controller
+authController.initialize().catch(console.error);
 
-// Định nghĩa route: POST /login (để dành)
-router.post('/login', authController.login);
+// Apply global middlewares
+router.use(securityHeaders);
+router.use(requestLogger);
 
-// Định nghĩa route: POST /logout
-router.post('/logout', authMiddleware, authController.logout);
+// Public routes (no authentication required)
+router.post('/register',
+  rateLimit(5, 15 * 60 * 1000), // 5 registrations per 15 minutes
+  validateInput({
+    required: ['email', 'phone', 'password', 'firstName', 'lastName']
+  }),
+  authController.register
+);
 
-// API này dùng để Gateway gọi vào xác thực (Flow: Gateway -> Auth Service)
-router.get('/verify', authController.verify);
+router.post('/login',
+  rateLimit(10, 15 * 60 * 1000), // 10 login attempts per 15 minutes
+  validateInput({
+    required: ['email', 'password']
+  }),
+  authController.login
+);
 
-// API Refresh Token (Public - ai có token thì gọi)
-router.post('/refresh', authController.refreshToken);
+router.post('/refresh-token',
+  rateLimit(20, 60 * 60 * 1000), // 20 token refreshes per hour
+  validateInput({
+    required: ['refreshToken']
+  }),
+  authController.refreshToken
+);
+
+router.post('/verify-email',
+  rateLimit(10, 60 * 60 * 1000), // 10 verification attempts per hour
+  validateInput({
+    required: ['email', 'code']
+  }),
+  authController.verifyEmail
+);
+
+router.post('/request-password-reset',
+  rateLimit(3, 60 * 60 * 1000), // 3 reset requests per hour
+  validateInput({
+    required: ['email']
+  }),
+  authController.requestPasswordReset
+);
+
+router.post('/reset-password',
+  rateLimit(3, 60 * 60 * 1000), // 3 reset attempts per hour
+  validateInput({
+    required: ['token', 'newPassword']
+  }),
+  authController.resetPassword
+);
+
+// Protected routes (authentication required)
+router.use(authenticateToken);
+
+router.post('/logout',
+  rateLimit(10, 60 * 60 * 1000), // 10 logouts per hour
+  authController.logout
+);
+
+router.get('/profile',
+  rateLimit(100, 60 * 60 * 1000), // 100 profile views per hour
+  authController.getProfile
+);
+
+router.put('/profile',
+  rateLimit(20, 60 * 60 * 1000), // 20 profile updates per hour
+  authController.updateProfile
+);
+
+// Admin routes (admin role required)
+router.get('/admin/stats',
+  requireAdmin,
+  rateLimit(50, 60 * 60 * 1000), // 50 admin requests per hour
+  authController.getUserStats
+);
+
+// Health check (no rate limiting for monitoring)
+router.get('/health', authController.healthCheck);
+
+// Cleanup on process termination
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, cleaning up...');
+  await authController.cleanup();
+});
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT received, cleaning up...');
+  await authController.cleanup();
+});
 
 module.exports = router;

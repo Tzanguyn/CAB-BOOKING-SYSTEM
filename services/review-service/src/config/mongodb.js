@@ -6,13 +6,10 @@ const connectMongoDB = async () => {
     const mongoUrl = process.env.MONGODB_URL || 'mongodb://cab_admin:cab_pass123@localhost:27017/cab_booking?authSource=admin';
 
     const options = {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
       maxPoolSize: 10, // Maximum number of connections in the connection pool
       serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
       socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
       bufferCommands: false, // Disable mongoose buffering
-      bufferMaxEntries: 0, // Disable mongoose buffering
     };
 
     await mongoose.connect(mongoUrl, options);

@@ -68,6 +68,10 @@ router.post('/reset-password',
   authController.resetPassword
 );
 
+// Health check (no rate limiting for monitoring)
+// Keep this BEFORE authenticateToken so Docker healthchecks don't require auth.
+router.get('/health', authController.healthCheck);
+
 // Protected routes (authentication required)
 router.use(authenticateToken);
 
@@ -92,9 +96,6 @@ router.get('/admin/stats',
   rateLimit(50, 60 * 60 * 1000), // 50 admin requests per hour
   authController.getUserStats
 );
-
-// Health check (no rate limiting for monitoring)
-router.get('/health', authController.healthCheck);
 
 // Cleanup on process termination
 process.on('SIGTERM', async () => {

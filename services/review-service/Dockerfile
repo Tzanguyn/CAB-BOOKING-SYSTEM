@@ -14,14 +14,12 @@ RUN apk add --no-cache \
 # Copy package files
 COPY package*.json ./
 
-# Copy shared utilities
-COPY ../../shared ./shared
-
 # Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+RUN npm install --only=production && npm cache clean --force
 
 # Copy application code
 COPY src/ ./src/
+COPY index.js ./
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \

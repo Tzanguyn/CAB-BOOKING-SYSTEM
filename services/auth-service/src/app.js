@@ -53,7 +53,7 @@ app.use((err, req, res, next) => {
 });
 
 // --- 404 Handler ---
-app.use('*', (req, res) => {
+app.use((req, res) => {
   res.status(404).json({
     error: 'Endpoint not found',
     code: 'NOT_FOUND',

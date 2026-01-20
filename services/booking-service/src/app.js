@@ -1,6 +1,66 @@
 const express = require('express');
 const cors = require('cors');
-const { RabbitMQClient, EXCHANGES, QUEUES, EVENT_TYPES, ROUTING_KEYS } = require('../../../shared');
+const amqp = require('amqplib');
+
+// Local event constants (kept in sync with shared/constants/events.js)
+const EVENT_TYPES = {
+  BOOKING_CREATED: 'BookingCreated',
+  BOOKING_CANCELLED: 'BookingCancelled',
+  RIDE_CREATED: 'RideCreated'
+};
+
+const ROUTING_KEYS = {
+  BOOKING_CREATED: 'booking.created',
+  BOOKING_CANCELLED: 'booking.cancelled',
+  RIDE_CREATED: 'ride.created'
+};
+
+const EXCHANGES = {
+  RIDE_EVENTS: 'ride-events',
+  BOOKING_EVENTS: 'booking-events'
+};
+
+const QUEUES = {
+  BOOKING_SERVICE: 'booking-service-queue'
+};
+
+class RabbitMQClient {
+  constructor(url) {
+    this.url = url;
+    this.connection = null;
+    this.channel = null;
+  }
+
+  async connect() {
+    this.connection = await amqp.connect(this.url);
+    this.channel = await this.connection.createChannel();
+  }
+
+  async disconnect() {
+    if (this.channel) await this.channel.close();
+    if (this.connection) await this.connection.close();
+  }
+
+  async publishEvent(exchange, routingKey, message) {
+    await this.channel.assertExchange(exchange, 'topic', { durable: true });
+    this.channel.publish(exchange, routingKey, Buffer.from(JSON.stringify(message)));
+  }
+
+  async subscribeToQueue(queueName, callback) {
+    await this.channel.assertQueue(queueName, { durable: true });
+    this.channel.consume(queueName, async (msg) => {
+      if (!msg) return;
+      try {
+        const event = JSON.parse(msg.content.toString());
+        await callback(event);
+        this.channel.ack(msg);
+      } catch (err) {
+        console.error('Error processing message:', err);
+        this.channel.nack(msg, false, false);
+      }
+    });
+  }
+}
 
 const app = express();
 
@@ -8,12 +68,22 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Health check
+app.get('/api/bookings/health', (req, res) => {
+  res.json({
+    service: 'booking-service',
+    status: 'healthy',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Initialize RabbitMQ client
 let rabbitMQClient;
 
 async function initializeRabbitMQ() {
   try {
-    rabbitMQClient = new RabbitMQClient();
+    const rabbitUrl = process.env.RABBITMQ_URL || 'amqp://guest:guest@rabbitmq:5672/';
+    rabbitMQClient = new RabbitMQClient(rabbitUrl);
     await rabbitMQClient.connect();
 
     // Subscribe to booking events
@@ -21,7 +91,8 @@ async function initializeRabbitMQ() {
 
     console.log('Booking Service connected to RabbitMQ');
   } catch (error) {
-    console.error('Failed to initialize RabbitMQ:', error);
+    console.error('Failed to initialize RabbitMQ (continuing without async events):', error.message);
+    rabbitMQClient = null;
   }
 }
 
@@ -48,18 +119,21 @@ async function handleBookingCreated(event) {
     console.log('Processing booking creation:', event.bookingId);
 
     // Publish ride created event
-    await rabbitMQClient.publishEvent(
-      EXCHANGES.RIDE_EVENTS,
-      ROUTING_KEYS.RIDE_CREATED,
-      {
-        type: EVENT_TYPES.RIDE_CREATED,
-        bookingId: event.bookingId,
-        rideId: `ride_${Date.now()}`,
-        pickup: event.pickup,
-        destination: event.destination,
-        passengerId: event.passengerId
-      }
-    );
+    if (rabbitMQClient) {
+      await rabbitMQClient.publishEvent(
+        EXCHANGES.RIDE_EVENTS,
+        ROUTING_KEYS.RIDE_CREATED,
+        {
+          type: EVENT_TYPES.RIDE_CREATED,
+          bookingId: event.bookingId,
+          rideId: `ride_${Date.now()}`,
+          pickup: event.pickup,
+          destination: event.destination,
+          passengerId: event.passengerId,
+          timestamp: new Date().toISOString()
+        }
+      );
+    }
 
     console.log('Published ride created event for booking:', event.bookingId);
   } catch (error) {

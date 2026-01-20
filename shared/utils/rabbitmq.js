@@ -8,7 +8,9 @@ class RabbitMQClient {
   constructor() {
     this.connection = null;
     this.channel = null;
-    this.url = process.env.RABBITMQ_URL || 'amqp://cab_admin:cab123!@#@localhost:5672/cab-booking';
+    this.url =
+      process.env.RABBITMQ_URL ||
+      'amqp://cab_admin:cab123%21%40%23@localhost:5672/cab-booking';
   }
 
   /**

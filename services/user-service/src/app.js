@@ -2,10 +2,6 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
-// Import configurations
-const { connectMongoDB } = require('./config/mongodb');
-const { connectRedis } = require('./config/redis');
-
 // Import routes
 const userRoutes = require('./routes/userRoutes');
 
@@ -32,7 +28,7 @@ app.use((err, req, res, next) => {
 });
 
 // --- 404 Handler ---
-app.use('*', (req, res) => {
+app.use((req, res) => {
   res.status(404).json({
     error: 'Endpoint not found',
     code: 'NOT_FOUND',
@@ -40,51 +36,5 @@ app.use('*', (req, res) => {
     method: req.method
   });
 });
-
-// Initialize application
-const initializeApp = async () => {
-  try {
-    // Connect to databases
-    await connectMongoDB();
-    await connectRedis();
-
-    console.log('✅ User Service initialized successfully');
-
-  } catch (error) {
-    console.error('❌ User Service initialization failed:', error);
-    process.exit(1);
-  }
-};
-
-// Graceful shutdown
-const gracefulShutdown = async (signal) => {
-  console.log(`Received ${signal}, shutting down gracefully...`);
-
-  try {
-    console.log('✅ User Service shut down successfully');
-    process.exit(0);
-  } catch (error) {
-    console.error('❌ Error during shutdown:', error);
-    process.exit(1);
-  }
-};
-
-// Handle shutdown signals
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-  gracefulShutdown('uncaughtException');
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  gracefulShutdown('unhandledRejection');
-});
-
-// Start initialization
-initializeApp();
 
 module.exports = app;

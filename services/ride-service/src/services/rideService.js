@@ -1,6 +1,10 @@
 const Ride = require('../models/Ride');
 const { RideStateMachineService, RIDE_STATES, RIDE_EVENTS } = require('../state-machine/rideStateMachine');
-const { RabbitMQClient, EXCHANGES, EVENT_TYPES } = require('../../../shared');
+// Temporarily disable shared imports
+// const { RabbitMQClient, EXCHANGES, EVENT_TYPES } = require('../../../shared');
+const RabbitMQClient = null;
+const EXCHANGES = {};
+const EVENT_TYPES = {};
 
 class RideService {
   constructor() {

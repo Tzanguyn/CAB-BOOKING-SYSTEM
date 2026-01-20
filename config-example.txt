@@ -2,11 +2,11 @@
 
 # Database Configuration
 DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
-MONGODB_URL=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_booking
+MONGODB_URL=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_booking?authSource=admin
 REDIS_URL=redis://redis:6379
 
 # RabbitMQ Configuration
-RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+RABBITMQ_URL=amqp://cab_admin:cab123%21%40%23@rabbitmq:5672/cab-booking
 RABBITMQ_HOST=rabbitmq
 RABBITMQ_PORT=5672
 RABBITMQ_VHOST=cab-booking

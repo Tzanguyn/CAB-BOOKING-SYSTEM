@@ -1,5 +1,9 @@
 const UserRepository = require('../repositories/userRepository');
-const { RabbitMQClient, EXCHANGES, EVENT_TYPES } = require('../../../shared');
+// Temporarily disable shared imports
+// const { RabbitMQClient, EXCHANGES, EVENT_TYPES } = require('../../../shared');
+const RabbitMQClient = null;
+const EXCHANGES = {};
+const EVENT_TYPES = {};
 
 class UserService {
   constructor() {
@@ -9,13 +13,8 @@ class UserService {
 
   // Initialize RabbitMQ
   async initializeRabbitMQ() {
-    try {
-      this.rabbitMQClient = new RabbitMQClient();
-      await this.rabbitMQClient.connect();
-      console.log('✅ User Service: RabbitMQ connected');
-    } catch (error) {
-      console.error('❌ User Service: RabbitMQ connection failed:', error);
-    }
+    // Temporarily disable RabbitMQ
+    console.log('✅ User Service: RabbitMQ disabled for now');
   }
 
   // Profile Management

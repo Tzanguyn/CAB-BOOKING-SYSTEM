@@ -30,7 +30,7 @@
     "redis": "^5.10.0",
     "compression": "^1.7.4",
     "axios": "^1.6.0",
-    "circuit-breaker-js": "^0.5.0",
+    "opossum": "^8.1.4",
     "response-time": "^2.3.2",
     "nodemon": "^3.1.11"
   }

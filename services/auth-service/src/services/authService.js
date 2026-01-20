@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const UserRepository = require('../repositories/userRepository');
 const { tokenUtils } = require('../config/redis');
-const { RabbitMQClient, EXCHANGES, EVENT_TYPES } = require('../../../shared');
+const { RabbitMQClient, EXCHANGES, EVENT_TYPES } = require('@cab-booking/shared');
 
 require('dotenv').config();
 

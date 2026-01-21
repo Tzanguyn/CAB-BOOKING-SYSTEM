@@ -10,15 +10,21 @@ RUN apk add --no-cache \
     redis \
     && rm -rf /var/cache/apk/*
 
+# Copy shared workspace dependency first (used by file:../../shared)
+COPY shared/ /shared/
+
+# Install shared dependencies (needed because file: dependency is a symlink to /shared)
+RUN cd /shared && npm install --only=production && npm cache clean --force
+
 # Copy package files
-COPY package*.json ./
+COPY services/auth-service/package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+RUN npm install --only=production && npm cache clean --force
 
 # Copy source code
-COPY src/ ./src/
-COPY index.js ./
+COPY services/auth-service/src/ ./src/
+COPY services/auth-service/index.js ./
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \

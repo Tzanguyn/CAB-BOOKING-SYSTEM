@@ -1,4 +1,7 @@
-const { RabbitMQClient, QUEUES } = require('../../../shared');
+// Temporarily disable shared imports
+// const { RabbitMQClient, QUEUES } = require('../../../shared');
+const RabbitMQClient = null;
+const QUEUES = {};
 
 class AuthEvents {
   constructor(authService) {

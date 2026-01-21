@@ -1,5 +1,55 @@
 const ReviewService = require('../services/reviewService');
-const { responseHelper } = require('../../../shared');
+// Temporarily disable shared imports
+// const { responseHelper } = require('../../../shared');
+
+// Simple response helper implementation (matches shared/responseHelper shape)
+const responseHelper = {
+  successResponse: (res, data, message = 'Success', statusCode = 200) => {
+    return res.status(statusCode).json({
+      success: true,
+      message,
+      data
+    });
+  },
+  errorResponse: (res, message = 'Error', statusCode = 500, code = 'ERROR') => {
+    return res.status(statusCode).json({
+      success: false,
+      message,
+      code
+    });
+  },
+  validationErrorResponse: (res, message = 'Validation failed', errors = []) => {
+    return res.status(400).json({
+      success: false,
+      message,
+      code: 'VALIDATION_ERROR',
+      errors
+    });
+  },
+  unauthorizedResponse: (res, message = 'Unauthorized') => {
+    return res.status(401).json({
+      success: false,
+      message,
+      code: 'UNAUTHORIZED'
+    });
+  },
+  notFoundResponse: (res, resource = 'Resource', message = 'Not found') => {
+    return res.status(404).json({
+      success: false,
+      message: message || `${resource} not found`,
+      code: 'NOT_FOUND'
+    });
+  },
+  paginationResponse: (res, data, pagination, message = 'Success', extra = {}) => {
+    return res.status(200).json({
+      success: true,
+      message,
+      data,
+      pagination,
+      ...extra
+    });
+  }
+};
 
 class ReviewController {
   constructor() {

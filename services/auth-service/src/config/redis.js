@@ -2,9 +2,7 @@ const redis = require('redis');
 require('dotenv').config();
 
 const redisClient = redis.createClient({
-  host: process.env.REDIS_HOST || 'redis',
-  port: process.env.REDIS_PORT || 6379,
-  password: process.env.REDIS_PASS || undefined,
+  url: process.env.REDIS_URL || 'redis://redis:6379',
   retry_strategy: (options) => {
     if (options.error && options.error.code === 'ECONNREFUSED') {
       console.error('❌ Auth Service: Redis connection refused');

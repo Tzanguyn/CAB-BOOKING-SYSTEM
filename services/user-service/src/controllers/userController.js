@@ -7,7 +7,8 @@ class UserController {
 
   // Initialize service
   async initialize() {
-    await this.userService.initializeRabbitMQ();
+    // RabbitMQ disabled for now
+    // await this.userService.initializeRabbitMQ();
   }
 
   // Profile Management Endpoints

@@ -1,5 +1,41 @@
 const mongoose = require('mongoose');
-const { schemaHelpers } = require('../../../shared');
+// Temporarily disable shared imports
+// const { schemaHelpers } = require('../../../shared');
+
+// Simple schema helpers implementation
+const schemaHelpers = {
+  // No-op plugin stub (keeps schema.plugin(...) from crashing)
+  auditPlugin: (schema) => schema,
+  validations: {
+    rating: {
+      validator: function (value) {
+        return Number.isInteger(value) && value >= 1 && value <= 5;
+      },
+      message: 'Rating must be an integer between 1 and 5'
+    }
+  },
+  mongooseFields: {
+    rating: {
+      type: Number,
+      required: true,
+      min: 1,
+      max: 5
+    }
+  },
+  commonFields: {
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now },
+    isActive: { type: Boolean, default: true }
+  },
+  index: (field) => ({ index: true }),
+  required: (field) => ({ required: true }),
+  default: (value) => ({ default: value }),
+  enum: (values) => ({ enum: values }),
+  min: (value) => ({ min: value }),
+  max: (value) => ({ max: value }),
+  minlength: (value) => ({ minlength: value }),
+  maxlength: (value) => ({ maxlength: value })
+};
 
 const reviewSchema = new mongoose.Schema({
   reviewId: {
@@ -221,8 +257,8 @@ const reviewSchema = new mongoose.Schema({
   collection: 'reviews'
 });
 
-// Apply audit plugin
-reviewSchema.plugin(schemaHelpers.auditPlugin);
+// Apply audit plugin (disabled for now)
+// reviewSchema.plugin(schemaHelpers.auditPlugin);
 
 // Indexes for performance
 reviewSchema.index({ subjectType: 1, subjectId: 1, createdAt: -1 });

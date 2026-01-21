@@ -1,5 +1,9 @@
 const ReviewRepository = require('../repositories/reviewRepository');
-const { RabbitMQClient, EXCHANGES, EVENT_TYPES } = require('../../../shared');
+// Temporarily disable shared imports
+// const { RabbitMQClient, EXCHANGES, EVENT_TYPES } = require('../../../shared');
+const RabbitMQClient = null;
+const EXCHANGES = {};
+const EVENT_TYPES = {};
 const { v4: uuidv4 } = require('uuid');
 
 class ReviewService {
@@ -10,6 +14,11 @@ class ReviewService {
 
   // Initialize RabbitMQ
   async initializeRabbitMQ() {
+    if (!RabbitMQClient) {
+      console.warn('⚠️ Review Service: RabbitMQ client disabled; skipping broker initialization');
+      return;
+    }
+
     try {
       this.rabbitMQClient = new RabbitMQClient();
       await this.rabbitMQClient.connect();

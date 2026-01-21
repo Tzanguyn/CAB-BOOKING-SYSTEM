@@ -38,6 +38,7 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+.history/
 
 # --- Docker & Databases (Dữ liệu cục bộ) ---
 # Tránh push dữ liệu database từ máy cá nhân lên Git

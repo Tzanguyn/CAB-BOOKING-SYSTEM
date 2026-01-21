@@ -1,0 +1,50 @@
+# CAB Booking System Environment Variables
+
+# Database Configuration
+DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
+MONGODB_URL=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_booking
+REDIS_URL=redis://redis:6379
+
+# RabbitMQ Configuration
+RABBITMQ_URL=amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking
+RABBITMQ_HOST=rabbitmq
+RABBITMQ_PORT=5672
+RABBITMQ_VHOST=cab-booking
+RABBITMQ_USER=cab_admin
+RABBITMQ_PASS=cab123!@#
+
+# Service Ports
+API_GATEWAY_PORT=3000
+AUTH_SERVICE_PORT=3001
+BOOKING_SERVICE_PORT=3003
+DRIVER_SERVICE_PORT=3004
+RIDE_SERVICE_PORT=3005
+PAYMENT_SERVICE_PORT=3006
+NOTIFICATION_SERVICE_PORT=3007
+PRICING_SERVICE_PORT=3008
+REVIEW_SERVICE_PORT=3009
+USER_SERVICE_PORT=3010
+REALTIME_SOCKET_PORT=3002
+
+# JWT Configuration
+JWT_SECRET=your-super-secret-jwt-key-here
+JWT_EXPIRE=24h
+
+# External APIs (if needed)
+GOOGLE_MAPS_API_KEY=your-google-maps-api-key
+STRIPE_SECRET_KEY=your-stripe-secret-key
+TWILIO_SID=your-twilio-sid
+TWILIO_TOKEN=your-twilio-token
+SENDGRID_API_KEY=your-sendgrid-api-key
+
+# Environment
+NODE_ENV=development
+
+# Monitoring
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASS=admin123
+PROMETHEUS_PORT=9090
+
+# Logging
+LOG_LEVEL=info
+LOG_FORMAT=json

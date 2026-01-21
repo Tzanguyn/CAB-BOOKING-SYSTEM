@@ -31,6 +31,7 @@ logs/
 # --- IDE & System Files ---
 .vscode/
 .idea/
+.history/
 .DS_Store
 Thumbs.db
 *.suo
@@ -38,7 +39,6 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
-.history/
 
 # --- Docker & Databases (Dữ liệu cục bộ) ---
 # Tránh push dữ liệu database từ máy cá nhân lên Git

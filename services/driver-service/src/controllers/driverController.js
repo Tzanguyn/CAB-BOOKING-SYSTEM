@@ -16,7 +16,11 @@ class DriverController {
       const result = await this.driverService.createDriverProfile(req.body);
       res.json({ success: true, result });
     } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
+      console.error(error);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
     }
   }
 
@@ -30,10 +34,11 @@ class DriverController {
     }
   }
 
-  async updateDriverProfile(req, res) {
+  async updateDriverStatus(req, res) {
     try {
       const { driverId } = req.params;
-      const result = await this.driverService.updateDriverProfile(driverId, req.body);
+      const { status } = req.body;
+      const result = await this.driverService.updateDriverStatus(driverId, status);
       res.json({ success: true, result });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });

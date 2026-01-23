@@ -10,8 +10,10 @@ class DriverRepository {
       const driver = new Driver(driverData);
       const savedDriver = await driver.save();
 
-      // Cache the driver profile
-      await cacheUtils.setDriverProfile(savedDriver.driverId, savedDriver.toObject());
+      await cacheUtils.setDriverProfile(
+        savedDriver.driverId,
+        savedDriver.toObject()
+      );
 
       return savedDriver.toObject();
     } catch (error) {
@@ -22,21 +24,13 @@ class DriverRepository {
 
   async getDriverById(driverId) {
     try {
-      // Try cache first
       let driver = await cacheUtils.getDriverProfile(driverId);
-      if (driver) {
-        return driver;
-      }
+      if (driver) return driver;
 
-      // Fetch from database
       const driverDoc = await Driver.findOne({ driverId });
-      if (!driverDoc) {
-        return null;
-      }
+      if (!driverDoc) return null;
 
       driver = driverDoc.toObject();
-
-      // Cache the driver profile
       await cacheUtils.setDriverProfile(driverId, driver);
 
       return driver;
@@ -54,13 +48,9 @@ class DriverRepository {
         { new: true, runValidators: true }
       );
 
-      if (!updatedDriver) {
-        return null;
-      }
+      if (!updatedDriver) return null;
 
       const driverObj = updatedDriver.toObject();
-
-      // Update cache
       await cacheUtils.setDriverProfile(driverId, driverObj);
 
       return driverObj;
@@ -79,7 +69,6 @@ class DriverRepository {
         timestamp: new Date()
       };
 
-      // Update driver document
       const driver = await Driver.findOneAndUpdate(
         { driverId },
         { currentLocation: locationData },
@@ -87,12 +76,16 @@ class DriverRepository {
       );
 
       if (driver) {
-        // Update cache
         await cacheUtils.setDriverLocation(driverId, locationData);
-        await cacheUtils.addDriverToGeoIndex(driverId, coordinates.lat, coordinates.lng);
-
-        // Update cache with full profile
-        await cacheUtils.setDriverProfile(driverId, driver.toObject());
+        await cacheUtils.addDriverToGeoIndex(
+          driverId,
+          coordinates.lat,
+          coordinates.lng
+        );
+        await cacheUtils.setDriverProfile(
+          driverId,
+          driver.toObject()
+        );
       }
 
       return driver ? driver.toObject() : null;
@@ -111,18 +104,18 @@ class DriverRepository {
       );
 
       if (driver) {
-        // Update cache
         await cacheUtils.setDriverStatus(driverId, status);
 
-        // Handle online/offline status
         if (status === 'online') {
           await cacheUtils.markDriverOnline(driverId);
         } else {
           await cacheUtils.markDriverOffline(driverId);
         }
 
-        // Update cache with full profile
-        await cacheUtils.setDriverProfile(driverId, driver.toObject());
+        await cacheUtils.setDriverProfile(
+          driverId,
+          driver.toObject()
+        );
       }
 
       return driver ? driver.toObject() : null;
@@ -135,13 +128,9 @@ class DriverRepository {
   async addDriverRating(driverId, rating) {
     try {
       const driver = await Driver.findOne({ driverId });
-      if (!driver) {
-        throw new Error('Driver not found');
-      }
+      if (!driver) throw new Error('Driver not found');
 
       await driver.updateRating(rating);
-
-      // Invalidate cache
       await cacheUtils.invalidateDriverCache(driverId);
 
       return driver.toObject();
@@ -154,13 +143,9 @@ class DriverRepository {
   async addCompletedTrip(driverId, earnings) {
     try {
       const driver = await Driver.findOne({ driverId });
-      if (!driver) {
-        throw new Error('Driver not found');
-      }
+      if (!driver) throw new Error('Driver not found');
 
       await driver.addCompletedTrip(earnings);
-
-      // Invalidate cache
       await cacheUtils.invalidateDriverCache(driverId);
 
       return driver.toObject();
@@ -176,7 +161,6 @@ class DriverRepository {
     try {
       const tracking = new GPSTracking(trackingData);
       const savedTracking = await tracking.save();
-
       return savedTracking.toObject();
     } catch (error) {
       console.error('Error saving GPS tracking:', error);
@@ -205,7 +189,11 @@ class DriverRepository {
   async getDriverDailyDistance(driverId, date) {
     try {
       const result = await GPSTracking.getDailyDistance(driverId, date);
-      return result[0] || { totalDistance: 0, pointCount: 0, averageSpeed: 0 };
+      return result[0] || {
+        totalDistance: 0,
+        pointCount: 0,
+        averageSpeed: 0
+      };
     } catch (error) {
       console.error('Error getting driver daily distance:', error);
       throw error;
@@ -216,39 +204,41 @@ class DriverRepository {
 
   async findAvailableDrivers(lat, lng, radiusKm = 5, limit = 20) {
     try {
-      // Try cache first
       const cacheKey = `available_drivers:${lat.toFixed(2)}_${lng.toFixed(2)}_${radiusKm}`;
-      let availableDrivers = await cacheUtils.getAvailableDrivers(cacheKey);
+      const cached = await cacheUtils.getAvailableDrivers(cacheKey);
+      if (cached) return cached.drivers;
 
-      if (availableDrivers) {
-        return availableDrivers.drivers;
-      }
+      const nearbyDrivers = await cacheUtils.findNearbyDrivers(
+        lat,
+        lng,
+        radiusKm,
+        limit * 2
+      );
 
-      // Find nearby drivers using geo index
-      const nearbyDrivers = await cacheUtils.findNearbyDrivers(lat, lng, radiusKm, limit * 2);
-
-      // Get driver details and filter by availability
       const driverIds = nearbyDrivers.map(d => d.driverId);
+
       const drivers = await Driver.find({
         driverId: { $in: driverIds },
         status: 'online',
         isActive: true,
         isVerified: true
-      }).select('driverId firstName lastName vehicle averageRating totalTrips status currentLocation');
+      }).select(
+        'driverId firstName lastName vehicle averageRating totalTrips status currentLocation'
+      );
 
-      // Combine with distance data
-      const availableDriversWithDistance = drivers.map(driver => {
-        const distanceData = nearbyDrivers.find(d => d.driverId === driver.driverId);
-        return {
-          ...driver.toObject(),
-          distance: distanceData ? distanceData.distance : null
-        };
-      }).sort((a, b) => (a.distance || 999) - (b.distance || 999));
+      const result = drivers
+        .map(driver => {
+          const d = nearbyDrivers.find(n => n.driverId === driver.driverId);
+          return {
+            ...driver.toObject(),
+            distance: d ? d.distance : null
+          };
+        })
+        .sort((a, b) => (a.distance || 999) - (b.distance || 999))
+        .slice(0, limit);
 
-      // Cache results for 5 minutes
-      await cacheUtils.setAvailableDrivers(cacheKey, availableDriversWithDistance.slice(0, limit));
-
-      return availableDriversWithDistance.slice(0, limit);
+      await cacheUtils.setAvailableDrivers(cacheKey, result);
+      return result;
     } catch (error) {
       console.error('Error finding available drivers:', error);
       throw error;
@@ -264,20 +254,15 @@ class DriverRepository {
     }
   }
 
-  // Analytics and Reporting
+  // Analytics
 
   async getDriverStats(driverId) {
     try {
-      // Try cache first
       let stats = await cacheUtils.getDriverEarnings(driverId);
-      if (stats) {
-        return stats;
-      }
+      if (stats) return stats;
 
       const driver = await Driver.findOne({ driverId });
-      if (!driver) {
-        return null;
-      }
+      if (!driver) return null;
 
       stats = {
         totalTrips: driver.totalTrips,
@@ -289,9 +274,7 @@ class DriverRepository {
         isVerified: driver.isVerified
       };
 
-      // Cache for 30 minutes
       await cacheUtils.setDriverEarnings(driverId, stats);
-
       return stats;
     } catch (error) {
       console.error('Error getting driver stats:', error);
@@ -301,18 +284,13 @@ class DriverRepository {
 
   async getDriverRating(driverId) {
     try {
-      // Try cache first
       let rating = await cacheUtils.getDriverRating(driverId);
-      if (rating) {
-        return rating;
-      }
+      if (rating) return rating;
 
       const driver = await Driver.findOne({ driverId })
         .select('averageRating totalRatings totalTrips');
 
-      if (!driver) {
-        return null;
-      }
+      if (!driver) return null;
 
       rating = {
         averageRating: driver.averageRating,
@@ -320,9 +298,7 @@ class DriverRepository {
         totalTrips: driver.totalTrips
       };
 
-      // Cache for 1 hour
       await cacheUtils.setDriverRating(driverId, rating);
-
       return rating;
     } catch (error) {
       console.error('Error getting driver rating:', error);
@@ -340,23 +316,13 @@ class DriverRepository {
     }
   }
 
-  async getDriversInArea(lat, lng, radiusKm = 5) {
-    try {
-      return await GPSTracking.getDriversInArea(lat, lng, radiusKm);
-    } catch (error) {
-      console.error('Error getting drivers in area:', error);
-      throw error;
-    }
-  }
-
-  // Administrative Operations
+  // Admin
 
   async getAllDrivers(page = 1, limit = 20, filters = {}) {
     try {
       const skip = (page - 1) * limit;
       const query = {};
 
-      // Apply filters
       if (filters.status) query.status = filters.status;
       if (filters.isVerified !== undefined) query.isVerified = filters.isVerified;
       if (filters.isActive !== undefined) query.isActive = filters.isActive;
@@ -365,7 +331,7 @@ class DriverRepository {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .select('-password'); // Exclude sensitive data
+        .select('-password');
 
       const total = await Driver.countDocuments(query);
 
@@ -381,76 +347,6 @@ class DriverRepository {
       };
     } catch (error) {
       console.error('Error getting all drivers:', error);
-      throw error;
-    }
-  }
-
-  async verifyDriver(driverId, documentType, verified = true) {
-    try {
-      const updateField = `documents.${documentType}.verified`;
-      const updateData = {
-        [updateField]: verified,
-        [`documents.${documentType}.verifiedAt`]: verified ? new Date() : null
-      };
-
-      // Check if all documents are verified
-      const driver = await Driver.findOne({ driverId });
-      if (driver && verified) {
-        const docs = driver.documents;
-        const allVerified = docs.driverLicense?.verified &&
-                           docs.vehicleRegistration?.verified &&
-                           docs.insurance?.verified;
-
-        if (allVerified) {
-          updateData.isVerified = true;
-        }
-      }
-
-      return await this.updateDriver(driverId, updateData);
-    } catch (error) {
-      console.error('Error verifying driver:', error);
-      throw error;
-    }
-  }
-
-  // Bulk operations
-
-  async deactivateInactiveDrivers(daysInactive = 30) {
-    try {
-      const cutoffDate = new Date(Date.now() - daysInactive * 24 * 60 * 60 * 1000);
-
-      const result = await Driver.updateMany(
-        {
-          lastLoginAt: { $lt: cutoffDate },
-          status: { $ne: 'offline' }
-        },
-        {
-          status: 'offline',
-          isActive: false
-        }
-      );
-
-      // Clear cache for affected drivers
-      const affectedDrivers = await Driver.find({
-        lastLoginAt: { $lt: cutoffDate }
-      }).select('driverId');
-
-      for (const driver of affectedDrivers) {
-        await cacheUtils.invalidateDriverCache(driver.driverId);
-      }
-
-      return result.modifiedCount;
-    } catch (error) {
-      console.error('Error deactivating inactive drivers:', error);
-      throw error;
-    }
-  }
-
-  async detectSuspiciousActivity(driverId, hours = 24) {
-    try {
-      return await GPSTracking.detectSuspiciousActivity(driverId, hours);
-    } catch (error) {
-      console.error('Error detecting suspicious activity:', error);
       throw error;
     }
   }

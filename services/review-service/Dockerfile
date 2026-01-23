@@ -1,42 +1,73 @@
-# Use Node.js 18 Alpine as base image
-FROM node:18-alpine
+# ────────────────────────────────────────────────────────────────
+# Stage 1: Builder (cài dependencies + build nếu cần)
+# ────────────────────────────────────────────────────────────────
+FROM node:18-alpine AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies for native modules
+# Cài các công cụ build native modules (nếu dự án có bcrypt, sharp, canvas, ...)
 RUN apk add --no-cache \
     python3 \
     make \
     g++ \
     git
 
-# Copy package files
+# Copy package files trước để tận dụng Docker cache
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install --only=production && npm cache clean --force
+# Cài dependencies production + dev (để build nếu có postinstall script)
+RUN npm ci
 
-# Copy application code
-COPY src/ ./src/
-COPY index.js ./
+# Copy source code
+COPY . .
 
-# Create non-root user
+# (Tùy chọn) Nếu dự án có build step (ví dụ: tsc, vite build, ...)
+# RUN npm run build
+
+# ────────────────────────────────────────────────────────────────
+# Stage 2: Production image (nhẹ nhất có thể)
+# ────────────────────────────────────────────────────────────────
+FROM node:18-alpine
+
+# Metadata labels (tốt cho Kubernetes, Docker Hub, ...)
+LABEL maintainer="Review Service Team" \
+      version="1.0" \
+      description="Review microservice for ride-hailing platform"
+
+# Set working directory
+WORKDIR /app
+
+# Cài các gói hệ thống cần thiết (rất ít)
+RUN apk add --no-cache \
+    tini
+
+# Tạo non-root user & group
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S reviewapp -u 1001
+    adduser -S reviewapp -u 1001 -G nodejs
 
-# Change ownership of app directory
-RUN chown -R reviewapp:nodejs /app
+# Copy chỉ những gì cần thiết từ builder stage
+COPY --from=builder --chown=reviewapp:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=reviewapp:nodejs /app/package*.json ./
+COPY --from=builder --chown=reviewapp:nodejs /app/src ./src
+COPY --from=builder --chown=reviewapp:nodejs /app/index.js ./
+# Nếu có build output (dist, build folder), copy thêm
+# COPY --from=builder --chown=reviewapp:nodejs /app/dist ./dist
+
+# Đảm bảo quyền sở hữu
 USER reviewapp
 
-# Expose port
+# Expose port (thay đổi nếu bạn dùng port khác trong .env)
 EXPOSE 3006
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3006/api/reviews/health', (res) => { \
-        process.exit(res.statusCode === 200 ? 0 : 1) \
-    }).on('error', () => process.exit(1))"
+# Healthcheck đáng tin cậy hơn (dùng wget nhẹ hơn http.get trong node)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3006/api/reviews/health || exit 1
+# Sử dụng tini để xử lý zombie process & forward signals đúng cách
+ENTRYPOINT ["/sbin/tini", "--"]
 
-# Start the application
+# Khởi động ứng dụng
+# Giả sử package.json có script "start": "node index.js" hoặc "node src/index.js"
 CMD ["npm", "start"]
+
+# (Alternative nếu không dùng npm start)
+# CMD ["node", "index.js"]

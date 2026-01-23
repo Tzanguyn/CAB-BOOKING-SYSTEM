@@ -1,46 +1,33 @@
 const ReviewService = require('../services/reviewService');
-// Temporarily disable shared imports
-// const { responseHelper } = require('../../../shared');
 
-// Simple response helper implementation (matches shared/responseHelper shape)
+// Response helpers (giữ nguyên + bổ sung nếu cần)
 const responseHelper = {
-  successResponse: (res, data, message = 'Success', statusCode = 200) => {
-    return res.status(statusCode).json({
-      success: true,
-      message,
-      data
-    });
+  successResponse: (res, data, message = 'Thành công', statusCode = 200) => {
+    return res.status(statusCode).json({ success: true, message, data });
   },
-  errorResponse: (res, message = 'Error', statusCode = 500, code = 'ERROR') => {
-    return res.status(statusCode).json({
-      success: false,
-      message,
-      code
-    });
+  errorResponse: (res, message = 'Lỗi hệ thống', statusCode = 500, code = 'INTERNAL_ERROR') => {
+    return res.status(statusCode).json({ success: false, message, code });
   },
-  validationErrorResponse: (res, message = 'Validation failed', errors = []) => {
-    return res.status(400).json({
-      success: false,
-      message,
-      code: 'VALIDATION_ERROR',
-      errors
-    });
+  validationErrorResponse: (res, message = 'Dữ liệu không hợp lệ', errors = [], statusCode = 400) => {
+    return res.status(statusCode).json({ success: false, message, code: 'VALIDATION_ERROR', errors });
   },
-  unauthorizedResponse: (res, message = 'Unauthorized') => {
-    return res.status(401).json({
-      success: false,
-      message,
-      code: 'UNAUTHORIZED'
-    });
+  unauthorizedResponse: (res, message = 'Chưa đăng nhập') => {
+    return res.status(401).json({ success: false, message, code: 'UNAUTHORIZED' });
   },
-  notFoundResponse: (res, resource = 'Resource', message = 'Not found') => {
+  forbiddenResponse: (res, message = 'Không có quyền') => {
+    return res.status(403).json({ success: false, message, code: 'FORBIDDEN' });
+  },
+  notFoundResponse: (res, resource = 'Tài nguyên', message) => {
     return res.status(404).json({
       success: false,
-      message: message || `${resource} not found`,
+      message: message || `${resource} không tồn tại`,
       code: 'NOT_FOUND'
     });
   },
-  paginationResponse: (res, data, pagination, message = 'Success', extra = {}) => {
+  conflictResponse: (res, message = 'Xung đột dữ liệu') => {
+    return res.status(409).json({ success: false, message, code: 'CONFLICT' });
+  },
+  paginationResponse: (res, data, pagination, message = 'Thành công', extra = {}) => {
     return res.status(200).json({
       success: true,
       message,
@@ -56,160 +43,204 @@ class ReviewController {
     this.reviewService = new ReviewService();
   }
 
-  // Initialize service
+  // Khởi tạo RabbitMQ (nếu dùng message broker)
   async initialize() {
-    await this.reviewService.initializeRabbitMQ();
+    try {
+      await this.reviewService.initializeRabbitMQ();
+    } catch (err) {
+      console.error('[ReviewController] Khởi tạo RabbitMQ thất bại:', err);
+    }
   }
 
-  // Create review
+  // ───────────────────────────────────────────────
+  // TẠO ĐÁNH GIÁ (endpoint chính, tổng quát)
+  // ───────────────────────────────────────────────
   createReview = async (req, res) => {
+    // userId đã được middleware requireAuth tự động tạo nếu không có (dev mode)
+    const userId = req.user?.userId;
+
+    const {
+      subjectType,
+      subjectId,
+      reviewerType = 'passenger',
+      rating,
+      title,
+      comment,
+      detailedRatings,
+      tags = [],
+      rideId,
+      source = 'api'
+    } = req.body;
+
+    // Validation
+    const errors = [];
+    if (!subjectType || !['driver', 'passenger', 'app', 'station'].includes(subjectType)) {
+      errors.push('subjectType phải là: driver, passenger, app hoặc station');
+    }
+    if (!subjectId) errors.push('subjectId là bắt buộc');
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      errors.push('rating phải là số nguyên từ 1 đến 5');
+    }
+    if (comment && (typeof comment !== 'string' || comment.trim().length > 1200)) {
+      errors.push('comment tối đa 1200 ký tự');
+    }
+    if (title && (typeof title !== 'string' || title.trim().length > 200)) {
+      errors.push('title tối đa 200 ký tự');
+    }
+
+    if (errors.length > 0) {
+      return responseHelper.validationErrorResponse(res, 'Dữ liệu đầu vào không hợp lệ', errors);
+    }
+
     try {
-      const userId = req.user?.userId;
-      const {
-        subjectType,
-        subjectId,
-        reviewerType,
-        rating,
-        title,
-        comment,
-        detailedRatings,
-        tags
-      } = req.body;
-
-      if (!userId) {
-        return responseHelper.unauthorizedResponse(res, 'User ID not found');
-      }
-
-      // Validate required fields
-      if (!subjectType || !subjectId || !rating) {
-        return responseHelper.validationErrorResponse(res, 'Missing required fields', ['subjectType', 'subjectId', 'rating']);
+      // Kiểm tra trùng lặp nếu có rideId (chỉ áp dụng cho driver)
+      if (rideId && subjectType === 'driver') {
+        const alreadyReviewed = await this.reviewService.hasUserReviewedRide(userId, rideId);
+        if (alreadyReviewed) {
+          return responseHelper.conflictResponse(res, 'Bạn đã đánh giá chuyến đi này trước đó');
+        }
       }
 
       const review = await this.reviewService.createReview({
         subjectType,
         subjectId,
-        reviewerType: reviewerType || 'passenger',
+        reviewerType,
         reviewerId: userId,
-        rating: parseInt(rating),
-        title,
-        comment,
+        rating,
+        title: title?.trim() || undefined,
+        comment: comment?.trim() || undefined,
         detailedRatings,
-        tags: tags || [],
+        tags,
+        rideId,
         ipAddress: req.ip,
         userAgent: req.get('User-Agent'),
-        source: req.body.source || 'api'
+        source
       });
 
-      return responseHelper.successResponse(res, review, 'Review created successfully', 201);
-
-    } catch (error) {
-      console.error('Create review controller error:', error);
-      return responseHelper.errorResponse(res, error.message, 400);
+      return responseHelper.successResponse(res, review, 'Đánh giá đã được gửi thành công', 201);
+    } catch (err) {
+      console.error('[createReview] Lỗi:', err);
+      return responseHelper.errorResponse(res, err.message || 'Không thể tạo đánh giá', 500, 'CREATE_REVIEW_FAILED');
     }
   };
 
-  // Get review by ID
+  // ───────────────────────────────────────────────
+  // Alias: TẠO ĐÁNH GIÁ TÀI XẾ (dùng param :driverId)
+  // ───────────────────────────────────────────────
+  createDriverReview = async (req, res) => {
+    const { driverId } = req.params;
+    if (!driverId) {
+      return responseHelper.validationErrorResponse(res, 'driverId là bắt buộc trong URL');
+    }
+
+    req.body.subjectType = 'driver';
+    req.body.subjectId = driverId;
+
+    return this.createReview(req, res);
+  };
+
+  // ───────────────────────────────────────────────
+  // LẤY CHI TIẾT ĐÁNH GIÁ
+  // ───────────────────────────────────────────────
   getReview = async (req, res) => {
+    const { reviewId } = req.params;
+    if (!reviewId) {
+      return responseHelper.validationErrorResponse(res, 'reviewId là bắt buộc');
+    }
+
     try {
-      const { reviewId } = req.params;
-
-      if (!reviewId) {
-        return responseHelper.validationErrorResponse(res, 'Review ID is required');
-      }
-
       const review = await this.reviewService.getReview(reviewId);
-
-      return responseHelper.successResponse(res, review);
-
-    } catch (error) {
-      console.error('Get review controller error:', error);
-      return responseHelper.notFoundResponse(res, 'Review', error.message);
+      if (!review) {
+        return responseHelper.notFoundResponse(res, 'Đánh giá');
+      }
+      return responseHelper.successResponse(res, review, 'Lấy đánh giá thành công');
+    } catch (err) {
+      return responseHelper.errorResponse(res, err.message, 500, 'GET_REVIEW_FAILED');
     }
   };
 
-  // Update review
+  // ───────────────────────────────────────────────
+  // CẬP NHẬT ĐÁNH GIÁ
+  // ───────────────────────────────────────────────
   updateReview = async (req, res) => {
+    const userId = req.user?.userId;
+    if (!userId) return responseHelper.unauthorizedResponse(res);
+
+    const { reviewId } = req.params;
+    if (!reviewId) {
+      return responseHelper.validationErrorResponse(res, 'reviewId là bắt buộc');
+    }
+
     try {
-      const { reviewId } = req.params;
-      const userId = req.user?.userId;
-      const updateData = req.body;
+      const review = await this.reviewService.getReview(reviewId);
+      if (!review) return responseHelper.notFoundResponse(res, 'Đánh giá');
 
-      if (!reviewId) {
-        return responseHelper.validationErrorResponse(res, 'Review ID is required');
+      const isOwner = review.reviewerId.toString() === userId;
+      const isAdmin = req.user?.role === 'admin' || req.user?.role === 'moderator';
+
+      if (!isOwner && !isAdmin) {
+        return responseHelper.forbiddenResponse(res, 'Bạn không có quyền chỉnh sửa đánh giá này');
       }
 
-      if (!userId) {
-        return responseHelper.unauthorizedResponse(res, 'User ID not found');
-      }
-
-      const review = await this.reviewService.updateReview(reviewId, updateData, userId);
-
-      return responseHelper.successResponse(res, review, 'Review updated successfully');
-
-    } catch (error) {
-      console.error('Update review controller error:', error);
-      return responseHelper.errorResponse(res, error.message, 400);
+      const updated = await this.reviewService.updateReview(reviewId, req.body, userId, isAdmin);
+      return responseHelper.successResponse(res, updated, 'Đánh giá đã được cập nhật');
+    } catch (err) {
+      return responseHelper.errorResponse(res, err.message, 500, 'UPDATE_REVIEW_FAILED');
     }
   };
 
-  // Delete review
+  // ───────────────────────────────────────────────
+  // XÓA ĐÁNH GIÁ (soft delete)
+  // ───────────────────────────────────────────────
   deleteReview = async (req, res) => {
+    const userId = req.user?.userId;
+    if (!userId) return responseHelper.unauthorizedResponse(res);
+
+    const { reviewId } = req.params;
+
     try {
-      const { reviewId } = req.params;
-      const userId = req.user?.userId;
+      const review = await this.reviewService.getReview(reviewId);
+      if (!review) return responseHelper.notFoundResponse(res, 'Đánh giá');
 
-      if (!reviewId) {
-        return responseHelper.validationErrorResponse(res, 'Review ID is required');
+      const isOwner = review.reviewerId.toString() === userId;
+      const isAdmin = req.user?.role === 'admin' || req.user?.role === 'moderator';
+
+      if (!isOwner && !isAdmin) {
+        return responseHelper.forbiddenResponse(res, 'Bạn không có quyền xóa đánh giá này');
       }
 
-      if (!userId) {
-        return responseHelper.unauthorizedResponse(res, 'User ID not found');
-      }
-
-      const deletedReview = await this.reviewService.deleteReview(reviewId, userId);
-
-      return responseHelper.successResponse(res, deletedReview, 'Review deleted successfully');
-
-    } catch (error) {
-      console.error('Delete review controller error:', error);
-      return responseHelper.errorResponse(res, error.message, 400);
+      const deleted = await this.reviewService.deleteReview(reviewId, userId, isAdmin);
+      return responseHelper.successResponse(res, deleted, 'Đánh giá đã được xóa (soft delete)');
+    } catch (err) {
+      return responseHelper.errorResponse(res, err.message, 500, 'DELETE_REVIEW_FAILED');
     }
   };
 
-  // Get reviews for subject
+  // ───────────────────────────────────────────────
+  // LẤY DANH SÁCH ĐÁNH GIÁ THEO SUBJECT
+  // ───────────────────────────────────────────────
   getReviewsForSubject = async (req, res) => {
+    const { subjectType, subjectId } = req.params;
+    if (!subjectType || !subjectId) {
+      return responseHelper.validationErrorResponse(res, 'subjectType và subjectId là bắt buộc');
+    }
+
+    const { page = 1, limit = 10, minRating, maxRating, hasResponse, tags } = req.query;
+
+    const pageNum = parseInt(page, 10);
+    const limitNum = Math.min(parseInt(limit, 10), 50);
+
+    if (isNaN(pageNum) || pageNum < 1 || isNaN(limitNum) || limitNum < 1) {
+      return responseHelper.validationErrorResponse(res, 'Tham số page/limit không hợp lệ');
+    }
+
+    const filters = {};
+    if (minRating) filters.minRating = parseInt(minRating, 10);
+    if (maxRating) filters.maxRating = parseInt(maxRating, 10);
+    if (hasResponse !== undefined) filters.hasResponse = hasResponse === 'true';
+    if (tags) filters.tags = tags.split(',').map(t => t.trim());
+
     try {
-      const { subjectType, subjectId } = req.params;
-      const {
-        page = 1,
-        limit = 10,
-        minRating,
-        maxRating,
-        hasResponse,
-        tags
-      } = req.query;
-
-      if (!subjectType || !subjectId) {
-        return res.status(400).json({ error: 'Subject type and ID are required' });
-      }
-
-      // Validate pagination
-      const pageNum = parseInt(page);
-      const limitNum = parseInt(limit);
-
-      if (pageNum < 1 || limitNum < 1 || limitNum > 50) {
-        return res.status(400).json({
-          error: 'Invalid pagination parameters',
-          validRange: { page: '>= 1', limit: '1-50' }
-        });
-      }
-
-      const filters = {};
-      if (minRating) filters.minRating = parseInt(minRating);
-      if (maxRating) filters.maxRating = parseInt(maxRating);
-      if (hasResponse !== undefined) filters.hasResponse = hasResponse === 'true';
-      if (tags) filters.tags = tags.split(',');
-
       const result = await this.reviewService.getReviewsForSubject(
         subjectType,
         subjectId,
@@ -218,294 +249,209 @@ class ReviewController {
         filters
       );
 
-      return responseHelper.paginationResponse(res, result.reviews, result.pagination, 'Reviews retrieved successfully', { filters: result.filters });
-
-    } catch (error) {
-      console.error('Get reviews for subject controller error:', error);
-      return responseHelper.errorResponse(res, error.message, 400);
+      return responseHelper.paginationResponse(
+        res,
+        result.reviews,
+        result.pagination,
+        'Lấy danh sách đánh giá thành công',
+        { appliedFilters: filters }
+      );
+    } catch (err) {
+      return responseHelper.errorResponse(res, err.message, 500, 'GET_REVIEWS_FAILED');
     }
   };
 
-  // Get review statistics
+  // ───────────────────────────────────────────────
+  // LẤY THỐNG KÊ ĐÁNH GIÁ
+  // ───────────────────────────────────────────────
   getReviewStats = async (req, res) => {
+    const { subjectType, subjectId } = req.params;
+    if (!subjectType || !subjectId) {
+      return responseHelper.validationErrorResponse(res, 'subjectType và subjectId là bắt buộc');
+    }
+
     try {
-      const { subjectType, subjectId } = req.params;
-
-      if (!subjectType || !subjectId) {
-        return res.status(400).json({ error: 'Subject type and ID are required' });
-      }
-
       const stats = await this.reviewService.getReviewStats(subjectType, subjectId);
-
-      return responseHelper.successResponse(res, stats, 'Review statistics retrieved successfully');
-
-    } catch (error) {
-      console.error('Get review stats controller error:', error);
-      return responseHelper.errorResponse(res, error.message, 400);
+      return responseHelper.successResponse(res, stats, 'Thống kê đánh giá thành công');
+    } catch (err) {
+      return responseHelper.errorResponse(res, err.message, 500, 'GET_STATS_FAILED');
     }
   };
 
-  // Get user's reviews
-  getUserReviews = async (req, res) => {
-    try {
-      const userId = req.user?.userId;
-      const { page = 1, limit = 10 } = req.query;
-
-      if (!userId) {
-        return responseHelper.unauthorizedResponse(res, 'User ID not found');
-      }
-
-      const pageNum = parseInt(page);
-      const limitNum = parseInt(limit);
-
-      if (pageNum < 1 || limitNum < 1 || limitNum > 50) {
-        return res.status(400).json({
-          error: 'Invalid pagination parameters',
-          validRange: { page: '>= 1', limit: '1-50' }
-        });
-      }
-
-      const result = await this.reviewService.getUserReviews(userId, pageNum, limitNum);
-
-      return responseHelper.paginationResponse(res, result.reviews, result.pagination, 'User reviews retrieved successfully');
-
-    } catch (error) {
-      console.error('Get user reviews controller error:', error);
-      res.status(500).json({ error: 'Failed to get user reviews' });
-    }
-  };
-
-  // Add helpful vote
+  // ───────────────────────────────────────────────
+  // VOTE HỮU ÍCH
+  // ───────────────────────────────────────────────
   addHelpfulVote = async (req, res) => {
+    const userId = req.user?.userId;
+    if (!userId) return responseHelper.unauthorizedResponse(res);
+
+    const { reviewId } = req.params;
+
     try {
-      const { reviewId } = req.params;
-      const userId = req.user?.userId;
-
-      if (!reviewId) {
-        return responseHelper.validationErrorResponse(res, 'Review ID is required');
-      }
-
-      if (!userId) {
-        return responseHelper.unauthorizedResponse(res, 'User ID not found');
-      }
-
-      const review = await this.reviewService.addHelpfulVote(reviewId, userId);
-
-      res.json({
-        message: 'Helpful vote added successfully',
-        review
-      });
-
-    } catch (error) {
-      console.error('Add helpful vote controller error:', error);
-      return responseHelper.errorResponse(res, error.message, 400);
+      const updated = await this.reviewService.addHelpfulVote(reviewId, userId);
+      return responseHelper.successResponse(res, updated, 'Đã vote hữu ích');
+    } catch (err) {
+      return responseHelper.errorResponse(res, err.message, 400, 'VOTE_FAILED');
     }
   };
 
-  // Add review response
+  // ───────────────────────────────────────────────
+  // THÊM PHẢN HỒI (từ công ty/driver)
+  // ───────────────────────────────────────────────
   addReviewResponse = async (req, res) => {
+    const responderId = req.user?.userId;
+    if (!responderId) return responseHelper.unauthorizedResponse(res);
+
+    const { reviewId } = req.params;
+    const { responseText, responderType = 'company' } = req.body;
+
+    if (!responseText?.trim()) {
+      return responseHelper.validationErrorResponse(res, 'Nội dung phản hồi không được để trống');
+    }
+    if (responseText.trim().length > 500) {
+      return responseHelper.validationErrorResponse(res, 'Phản hồi tối đa 500 ký tự');
+    }
+
     try {
-      const { reviewId } = req.params;
-      const responderId = req.user?.userId;
-      const { responderType, responseText } = req.body;
-
-      if (!reviewId) {
-        return responseHelper.validationErrorResponse(res, 'Review ID is required');
-      }
-
-      if (!responderId) {
-        return res.status(400).json({ error: 'Responder ID not found' });
-      }
-
-      if (!responseText || responseText.trim().length === 0) {
-        return res.status(400).json({ error: 'Response text is required' });
-      }
-
-      if (responseText.length > 500) {
-        return res.status(400).json({ error: 'Response text must be less than 500 characters' });
-      }
-
-      const review = await this.reviewService.addReviewResponse(
+      const updated = await this.reviewService.addReviewResponse(
         reviewId,
         responderId,
-        responderType || 'company',
+        responderType,
         responseText.trim()
       );
-
-      res.json({
-        message: 'Review response added successfully',
-        review
-      });
-
-    } catch (error) {
-      console.error('Add review response controller error:', error);
-      return responseHelper.errorResponse(res, error.message, 400);
+      return responseHelper.successResponse(res, updated, 'Đã thêm phản hồi thành công');
+    } catch (err) {
+      return responseHelper.errorResponse(res, err.message, 500, 'ADD_RESPONSE_FAILED');
     }
   };
 
-  // Get trending reviews
-  getTrendingReviews = async (req, res) => {
-    try {
-      const { limit = 10, days = 30 } = req.query;
-
-      const limitNum = parseInt(limit);
-      const daysNum = parseInt(days);
-
-      if (limitNum < 1 || limitNum > 50) {
-        return res.status(400).json({ error: 'Limit must be between 1 and 50' });
-      }
-
-      if (daysNum < 1 || daysNum > 365) {
-        return res.status(400).json({ error: 'Days must be between 1 and 365' });
-      }
-
-      const reviews = await this.reviewService.getTrendingReviews(limitNum, daysNum);
-
-      res.json({ reviews });
-
-    } catch (error) {
-      console.error('Get trending reviews controller error:', error);
-      res.status(500).json({ error: 'Failed to get trending reviews' });
-    }
-  };
-
-  // Admin endpoints
-
-  // Moderate review
+  // ───────────────────────────────────────────────
+  // KIỂM DUYỆT ĐÁNH GIÁ (ADMIN/MODERATOR)
+  // ───────────────────────────────────────────────
   moderateReview = async (req, res) => {
+    const moderatorId = req.user?.userId;
+    if (!moderatorId) return responseHelper.unauthorizedResponse(res, 'Yêu cầu quyền moderator/admin');
+
+    const { reviewId } = req.params;
+    const { action, reason } = req.body;
+
+    if (!['approve', 'reject', 'flag'].includes(action)) {
+      return responseHelper.validationErrorResponse(res, 'Hành động phải là approve, reject hoặc flag');
+    }
+
     try {
-      const { reviewId } = req.params;
-      const moderatorId = req.user?.userId;
-      const { action, reason } = req.body;
-
-      if (!reviewId) {
-        return responseHelper.validationErrorResponse(res, 'Review ID is required');
-      }
-
-      if (!moderatorId) {
-        return res.status(400).json({ error: 'Moderator ID not found' });
-      }
-
-      if (!['approve', 'reject', 'flag'].includes(action)) {
-        return res.status(400).json({ error: 'Invalid action. Must be approve, reject, or flag' });
-      }
-
-      const review = await this.reviewService.moderateReview(reviewId, action, moderatorId, reason);
-
-      res.json({
-        message: `Review ${action}d successfully`,
-        review
-      });
-
-    } catch (error) {
-      console.error('Moderate review controller error:', error);
-      return responseHelper.errorResponse(res, error.message, 400);
+      const updated = await this.reviewService.moderateReview(reviewId, action, moderatorId, reason?.trim());
+      return responseHelper.successResponse(res, updated, `Đã ${action} đánh giá thành công`);
+    } catch (err) {
+      return responseHelper.errorResponse(res, err.message, 500, 'MODERATE_REVIEW_FAILED');
     }
   };
 
-  // Get reviews needing moderation
+  // ───────────────────────────────────────────────
+  // LẤY DANH SÁCH ĐÁNH GIÁ CHỜ DUYỆT (ADMIN)
+  // ───────────────────────────────────────────────
   getReviewsNeedingModeration = async (req, res) => {
+    const { page = 1, limit = 10 } = req.query;
+
+    const pageNum = parseInt(page, 10);
+    const limitNum = Math.min(parseInt(limit, 10), 100);
+
+    if (isNaN(pageNum) || pageNum < 1 || isNaN(limitNum) || limitNum < 1) {
+      return responseHelper.validationErrorResponse(res, 'Tham số page/limit không hợp lệ');
+    }
+
     try {
-      const { page = 1, limit = 20 } = req.query;
-
-      const pageNum = parseInt(page);
-      const limitNum = parseInt(limit);
-
-      if (pageNum < 1 || limitNum < 1 || limitNum > 100) {
-        return res.status(400).json({
-          error: 'Invalid pagination parameters',
-          validRange: { page: '>= 1', limit: '1-100' }
-        });
-      }
-
-      // This would need to be implemented in the service
-      const reviews = await this.reviewService.getReviewsNeedingModeration();
-
-      // Simple pagination
-      const startIndex = (pageNum - 1) * limitNum;
-      const endIndex = startIndex + limitNum;
-      const paginatedReviews = reviews.slice(startIndex, endIndex);
-
-      res.json({
-        reviews: paginatedReviews,
-        pagination: {
-          currentPage: pageNum,
-          totalPages: Math.ceil(reviews.length / limitNum),
-          totalReviews: reviews.length,
-          hasNext: endIndex < reviews.length,
-          hasPrev: pageNum > 1
-        }
-      });
-
-    } catch (error) {
-      console.error('Get reviews needing moderation controller error:', error);
-      res.status(500).json({ error: 'Failed to get reviews needing moderation' });
+      // Bạn cần implement method này trong ReviewService (query status: 'pending')
+      const result = await this.reviewService.getReviewsNeedingModeration(pageNum, limitNum);
+      return responseHelper.paginationResponse(
+        res,
+        result.reviews,
+        result.pagination,
+        'Lấy danh sách đánh giá chờ duyệt thành công'
+      );
+    } catch (err) {
+      return responseHelper.errorResponse(res, err.message, 500, 'GET_PENDING_MODERATION_FAILED');
     }
   };
 
-  // Health check
-  healthCheck = async (req, res) => {
-    const healthData = {
-      service: 'review-service',
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      version: process.env.npm_package_version || '1.0.0',
-      environment: process.env.NODE_ENV || 'development',
-      memory: {
-        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
-        external: Math.round(process.memoryUsage().external / 1024 / 1024)
-      }
-    };
-
-    return responseHelper.healthResponse(res, healthData);
-  };
-
-  // Metrics endpoint for monitoring
+  // ───────────────────────────────────────────────
+  // METRICS (cho monitoring, dashboard admin)
+  // ───────────────────────────────────────────────
   metrics = async (req, res) => {
     try {
-      // Get basic metrics
-      const metrics = {
-        service: 'review-service',
-        timestamp: new Date().toISOString(),
+      // Implement logic thực tế trong service nếu cần (tổng số review, average, pending, v.v.)
+      const stats = await this.reviewService.getReviewStats('all', null); // hoặc query tổng hợp
+      return responseHelper.successResponse(res, {
+        ...stats,
         uptime: process.uptime(),
-        memory: process.memoryUsage(),
-        cpu: process.cpuUsage(),
-        pid: process.pid,
-
-        // Database connection status (simplified)
-        database: {
-          status: 'connected', // In real implementation, check actual connection
-          collections: ['reviews']
-        },
-
-        // Message queue status (simplified)
-        messageQueue: {
-          status: this.reviewService.rabbitMQClient ? 'connected' : 'disconnected',
-          pendingMessages: 0 // Would track actual queue length
-        },
-
-        // Application metrics
-        reviews: {
-          totalProcessed: 0, // Would be tracked with actual counters
-          averageProcessingTime: 0,
-          errorRate: 0
-        }
-      };
-
-      return responseHelper.successResponse(res, metrics, 'Metrics retrieved successfully');
-
-    } catch (error) {
-      console.error('Metrics endpoint error:', error);
-      return responseHelper.errorResponse(res, 'Failed to retrieve metrics', 500);
+        timestamp: new Date().toISOString()
+      }, 'Metrics review service');
+    } catch (err) {
+      return responseHelper.errorResponse(res, err.message, 500, 'METRICS_FAILED');
     }
   };
 
-  // Cleanup
+  // ───────────────────────────────────────────────
+  // TRENDING REVIEWS (hữu ích nhất, mới nhất...)
+  // ───────────────────────────────────────────────
+  getTrendingReviews = async (req, res) => {
+    const { limit = 10, days = 7 } = req.query;
+
+    const limitNum = Math.min(parseInt(limit, 10), 50);
+    const daysNum = parseInt(days, 10);
+
+    try {
+      // Implement trong service: sort theo helpful votes + createdAt gần đây
+      const trending = await this.reviewService.getTrendingReviews(limitNum, daysNum);
+      return responseHelper.successResponse(res, trending, 'Lấy đánh giá trending thành công');
+    } catch (err) {
+      return responseHelper.errorResponse(res, err.message, 500, 'GET_TRENDING_FAILED');
+    }
+  };
+
+  // ───────────────────────────────────────────────
+  // ĐÁNH GIÁ CỦA TÔI (MY REVIEWS)
+  // ───────────────────────────────────────────────
+  getUserReviews = async (req, res) => {
+    const userId = req.user?.userId;
+    if (!userId) return responseHelper.unauthorizedResponse(res);
+
+    const { page = 1, limit = 10 } = req.query;
+
+    const pageNum = parseInt(page, 10);
+    const limitNum = Math.min(parseInt(limit, 10), 50);
+
+    try {
+      const result = await this.reviewService.getUserReviews(userId, pageNum, limitNum);
+      return responseHelper.paginationResponse(
+        res,
+        result.reviews,
+        result.pagination,
+        'Lấy danh sách đánh giá của bạn thành công'
+      );
+    } catch (err) {
+      return responseHelper.errorResponse(res, err.message, 500, 'GET_MY_REVIEWS_FAILED');
+    }
+  };
+
+  // Cleanup (nếu cần disconnect DB/RabbitMQ khi shutdown)
   async cleanup() {
-    await this.reviewService.cleanup();
+    try {
+      await this.reviewService.cleanup();
+    } catch (err) {
+      console.error('[ReviewController] Cleanup thất bại:', err);
+    }
   }
+
+  // Health check endpoint
+  healthCheck = (req, res) => {
+    return responseHelper.successResponse(res, {
+      status: 'healthy',
+      service: 'review-service',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString()
+    }, 'Review service đang hoạt động');
+  };
 }
 
 module.exports = ReviewController;

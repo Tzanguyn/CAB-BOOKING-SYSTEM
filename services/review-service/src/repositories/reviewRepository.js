@@ -1,379 +1,435 @@
+const mongoose = require('mongoose');
 const Review = require('../models/Review');
 
 class ReviewRepository {
-  // Create new review
+  constructor() {
+    this.logger = console; // TODO: Thay bằng winston/pino trong production
+  }
+
+  // ───────────────────────────────────────────────
+  // TẠO ĐÁNH GIÁ MỚI
+  // ───────────────────────────────────────────────
   async createReview(reviewData) {
     try {
       const review = new Review(reviewData);
       const savedReview = await review.save();
 
-      // Perform sentiment analysis (simplified)
-      await this.analyzeSentiment(savedReview);
+      // Phân tích sentiment không blocking (không ảnh hưởng response time)
+      this.analyzeSentiment(savedReview).catch((err) => {
+        this.logger.warn('Phân tích sentiment thất bại', {
+          reviewId: savedReview._id?.toString(),
+          error: err.message,
+        });
+      });
 
-      return savedReview.toObject();
-    } catch (error) {
-      console.error('Error creating review:', error);
-      throw error;
+      return savedReview.toObject({ virtuals: true });
+    } catch (err) {
+      this.logger.error('Tạo đánh giá thất bại', {
+        error: err.message,
+        stack: err.stack,
+        reviewData: JSON.stringify(reviewData, null, 2),
+      });
+      throw new Error(`Không thể tạo đánh giá: ${err.message}`);
     }
   }
 
-  // Get review by ID
-  async getReviewById(reviewId) {
+  // ───────────────────────────────────────────────
+  // LẤY ĐÁNH GIÁ THEO ID
+  // ───────────────────────────────────────────────
+  async getReviewById(id) {
     try {
-      const review = await Review.findOne({ reviewId }).populate('response').lean();
-      return review;
-    } catch (error) {
-      console.error('Error getting review by ID:', error);
-      throw error;
-    }
-  }
-
-  // Update review
-  async updateReview(reviewId, updateData, editorId = null) {
-    try {
-      const review = await Review.findOne({ reviewId });
-
-      if (!review) {
-        throw new Error('Review not found');
+      if (!mongoose.isValidObjectId(id)) {
+        throw new Error('ID đánh giá không hợp lệ');
       }
 
-      // Store edit history
+      const review = await Review.findById(id)
+        .populate('reviewer', 'name avatar')
+        .populate('response.responder', 'name')
+        .lean();
+
+      return review || null;
+    } catch (err) {
+      this.logger.error('Lấy đánh giá theo ID thất bại', { id, error: err.message });
+      throw err;
+    }
+  }
+
+  // ───────────────────────────────────────────────
+  // CẬP NHẬT ĐÁNH GIÁ (chỉ người tạo hoặc admin)
+  // ───────────────────────────────────────────────
+  async updateReview(reviewId, updateData, editorId = null, isAdmin = false) {
+    try {
+      if (!mongoose.isValidObjectId(reviewId)) {
+        throw new Error('ID không hợp lệ');
+      }
+
+      const review = await Review.findById(reviewId);
+      if (!review) {
+        throw new Error('Không tìm thấy đánh giá');
+      }
+
+      // Kiểm tra quyền
+      if (!isAdmin && editorId && review.reviewer?.toString() !== editorId) {
+        throw new Error('Không có quyền chỉnh sửa đánh giá này');
+      }
+
+      // Lưu lịch sử chỉnh sửa (nếu có editorId)
       if (editorId) {
+        review.editHistory = review.editHistory || [];
         review.editHistory.push({
           editedBy: editorId,
-          changes: updateData
+          changes: { ...updateData },
+          editedAt: new Date(),
         });
       }
 
-      // Update the review
+      // Cập nhật fields
       Object.assign(review, updateData);
-      const updatedReview = await review.save();
+      const updated = await review.save();
 
-      return updatedReview.toObject();
-    } catch (error) {
-      console.error('Error updating review:', error);
-      throw error;
+      return updated.toObject({ virtuals: true });
+    } catch (err) {
+      this.logger.error('Cập nhật đánh giá thất bại', { reviewId, error: err.message });
+      throw err;
     }
   }
 
-  // Delete review (soft delete by changing status)
-  async deleteReview(reviewId, deletedBy) {
+  // ───────────────────────────────────────────────
+  // XÓA ĐÁNH GIÁ (soft delete)
+  // ───────────────────────────────────────────────
+  async deleteReview(reviewId, deletedBy, isAdmin = false) {
     try {
-      const review = await Review.findOneAndUpdate(
-        { reviewId },
-        {
-          status: 'rejected',
-          moderatedBy: deletedBy,
-          moderatedAt: new Date(),
-          moderationReason: 'deleted_by_user'
-        },
-        { new: true }
-      );
+      const review = await Review.findById(reviewId);
+      if (!review) {
+        throw new Error('Không tìm thấy đánh giá');
+      }
 
-      return review ? review.toObject() : null;
-    } catch (error) {
-      console.error('Error deleting review:', error);
-      throw error;
+      if (!isAdmin && deletedBy && review.reviewer?.toString() !== deletedBy) {
+        throw new Error('Không có quyền xóa đánh giá này');
+      }
+
+      review.status = 'rejected';
+      review.moderation = {
+        reason: 'deleted_by_user',
+        by: deletedBy,
+        at: new Date(),
+      };
+      review.isVisible = false;
+
+      const updated = await review.save();
+      return updated.toObject();
+    } catch (err) {
+      this.logger.error('Xóa đánh giá thất bại', { reviewId, error: err.message });
+      throw err;
     }
   }
 
-  // Get reviews for a subject (ride, driver, passenger)
+  // ───────────────────────────────────────────────
+  // LẤY DANH SÁCH ĐÁNH GIÁ CỦA MỘT SUBJECT (driver, ride, v.v.)
+  // ───────────────────────────────────────────────
   async getReviewsForSubject(subjectType, subjectId, page = 1, limit = 10, filters = {}) {
+    const {
+      minRating,
+      maxRating,
+      tags,
+      hasResponse,
+      sortBy = 'createdAt',
+      sortOrder = -1,
+    } = filters;
+
     try {
       const query = {
-        subjectType,
-        subjectId,
-        status: 'approved' // Only show approved reviews by default
+        'subject.type': subjectType,
+        'subject.id': new mongoose.Types.ObjectId(subjectId),
+        status: 'approved',
+        isVisible: true,
       };
 
-      // Apply additional filters
-      if (filters.minRating) query.rating = { $gte: filters.minRating };
-      if (filters.maxRating) query.rating = { ...query.rating, $lte: filters.maxRating };
-      if (filters.hasResponse !== undefined) {
-        query.response = filters.hasResponse ? { $exists: true } : { $exists: false };
-      }
-      if (filters.tags && filters.tags.length > 0) {
-        query.tags = { $in: filters.tags };
+      // Xử lý rating range
+      if (minRating || maxRating) {
+        query.rating = {};
+        if (minRating) query.rating.$gte = Number(minRating);
+        if (maxRating) query.rating.$lte = Number(maxRating);
       }
 
-      const total = await Review.countDocuments(query);
-      const totalPages = Math.ceil(total / limit);
+      if (tags?.length) query.tags = { $in: tags };
+      if (hasResponse !== undefined) {
+        query['response.text'] = hasResponse
+          ? { $exists: true, $ne: '' }
+          : { $exists: false };
+      }
+
+      const sort = { [sortBy]: sortOrder };
       const skip = (page - 1) * limit;
 
-      const reviews = await Review.find(query)
-        .populate('response')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean();
+      const [reviews, total] = await Promise.all([
+        Review.find(query)
+          .sort(sort)
+          .skip(skip)
+          .limit(limit)
+          .populate('reviewer', 'name avatar')
+          .populate('response.responder', 'name')
+          .lean(),
+        Review.countDocuments(query),
+      ]);
 
       return {
         reviews,
         pagination: {
           currentPage: page,
-          totalPages,
+          totalPages: Math.ceil(total / limit),
           totalReviews: total,
-          hasNext: page < totalPages,
-          hasPrev: page > 1
+          hasNext: skip + reviews.length < total,
+          hasPrev: page > 1,
         },
-        filters: {
-          subjectType,
-          subjectId,
-          appliedFilters: filters
-        }
       };
-    } catch (error) {
-      console.error('Error getting reviews for subject:', error);
-      throw error;
+    } catch (err) {
+      this.logger.error('Lấy danh sách đánh giá thất bại', {
+        subjectType,
+        subjectId,
+        error: err.message,
+      });
+      throw err;
     }
   }
 
-  // Get review statistics
+  // ───────────────────────────────────────────────
+  // LẤY THỐNG KÊ ĐÁNH GIÁ (average + distribution)
+  // ───────────────────────────────────────────────
   async getReviewStats(subjectType, subjectId) {
     try {
-      const stats = await Review.getReviewStats(subjectType, subjectId);
-      return stats[0] || {
-        totalReviews: 0,
-        averageRating: 0,
-        ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
-      };
-    } catch (error) {
-      console.error('Error getting review stats:', error);
-      throw error;
-    }
-  }
-
-  // Check if user can review (prevent duplicate reviews)
-  async canUserReview(reviewerId, subjectType, subjectId) {
-    try {
-      const existingReview = await Review.findOne({
-        reviewerId,
+      const result = await Review.getAverageRating(subjectType, subjectId);
+      return (
+        result || {
+          average: 0,
+          total: 0,
+          distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+        }
+      );
+    } catch (err) {
+      this.logger.error('Lấy thống kê đánh giá thất bại', {
         subjectType,
         subjectId,
-        status: { $ne: 'rejected' }
+        error: err.message,
       });
-
-      return !existingReview;
-    } catch (error) {
-      console.error('Error checking if user can review:', error);
-      throw error;
+      throw err;
     }
   }
 
-  // Get user's reviews
-  async getUserReviews(reviewerId, page = 1, limit = 10) {
+  // ───────────────────────────────────────────────
+  // KIỂM TRA NGƯỜI DÙNG CÓ THỂ ĐÁNH GIÁ CHƯA
+  // ───────────────────────────────────────────────
+  async canUserReview(reviewerId, subjectType, subjectId, rideId = null) {
     try {
-      const total = await Review.countDocuments({ reviewerId });
-      const totalPages = Math.ceil(total / limit);
+      const query = {
+        reviewer: new mongoose.Types.ObjectId(reviewerId),
+        'subject.type': subjectType,
+        'subject.id': new mongoose.Types.ObjectId(subjectId),
+        status: { $ne: 'rejected' },
+      };
+
+      if (rideId) {
+        query.ride = new mongoose.Types.ObjectId(rideId);
+      }
+
+      const count = await Review.countDocuments(query);
+      return count === 0;
+    } catch (err) {
+      this.logger.error('Kiểm tra quyền đánh giá thất bại', { reviewerId, error: err.message });
+      throw err;
+    }
+  }
+
+  // ───────────────────────────────────────────────
+  // THÊM VOTE HỮU ÍCH
+  // ───────────────────────────────────────────────
+  async addHelpfulVote(reviewId, userId) {
+    try {
+      const review = await Review.findById(reviewId);
+      if (!review) throw new Error('Không tìm thấy đánh giá');
+
+      await review.addHelpfulVote();
+      return review.toObject();
+    } catch (err) {
+      this.logger.error('Vote hữu ích thất bại', { reviewId, error: err.message });
+      throw err;
+    }
+  }
+
+  // ───────────────────────────────────────────────
+  // THÊM PHẢN HỒI (từ driver/admin)
+  // ───────────────────────────────────────────────
+  async addReviewResponse(reviewId, responderId, responderType, text) {
+    try {
+      const review = await Review.findById(reviewId);
+      if (!review) throw new Error('Không tìm thấy đánh giá');
+
+      await review.addResponse(responderId, responderType, text);
+      return review.toObject();
+    } catch (err) {
+      this.logger.error('Thêm phản hồi thất bại', { reviewId, error: err.message });
+      throw err;
+    }
+  }
+
+  // ───────────────────────────────────────────────
+  // KIỂM DUYỆT ĐÁNH GIÁ (approve / reject / flag)
+  // ───────────────────────────────────────────────
+  async moderateReview(reviewId, action, moderatorId, reason = null) {
+    try {
+      const review = await Review.findById(reviewId);
+      if (!review) throw new Error('Không tìm thấy đánh giá');
+
+      const actions = {
+        approve: () => review.approve(moderatorId),
+        reject: () => review.reject(moderatorId, reason),
+        flag: () => review.flagForModeration(reason),
+      };
+
+      if (!actions[action]) {
+        throw new Error('Hành động kiểm duyệt không hợp lệ');
+      }
+
+      await actions[action]();
+      return review.toObject();
+    } catch (err) {
+      this.logger.error('Kiểm duyệt đánh giá thất bại', { reviewId, action, error: err.message });
+      throw err;
+    }
+  }
+
+  // ───────────────────────────────────────────────
+  // LẤY ĐÁNH GIÁ CỦA NGƯỜI DÙNG
+  // ───────────────────────────────────────────────
+  async getUserReviews(userId, page = 1, limit = 10) {
+    try {
+      const query = {
+        reviewer: new mongoose.Types.ObjectId(userId),
+        isVisible: true,
+      };
+
       const skip = (page - 1) * limit;
 
-      const reviews = await Review.find({ reviewerId })
-        .populate('response')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean();
+      const [reviews, total] = await Promise.all([
+        Review.find(query)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .populate('subject.id', 'name')
+          .lean(),
+        Review.countDocuments(query),
+      ]);
 
       return {
         reviews,
         pagination: {
           currentPage: page,
-          totalPages,
+          totalPages: Math.ceil(total / limit),
           totalReviews: total,
-          hasNext: page < totalPages,
-          hasPrev: page > 1
-        }
+          hasNext: skip + reviews.length < total,
+          hasPrev: page > 1,
+        },
       };
-    } catch (error) {
-      console.error('Error getting user reviews:', error);
-      throw error;
+    } catch (err) {
+      this.logger.error('Lấy đánh giá của người dùng thất bại', { userId, error: err.message });
+      throw err;
     }
   }
 
-  // Moderate review
-  async moderateReview(reviewId, action, moderatorId, reason = null) {
-    try {
-      const review = await Review.findOne({ reviewId });
-
-      if (!review) {
-        throw new Error('Review not found');
-      }
-
-      switch (action) {
-        case 'approve':
-          review.approve(moderatorId);
-          break;
-        case 'reject':
-          review.reject(moderatorId, reason);
-          break;
-        case 'flag':
-          review.flagForModeration(reason);
-          break;
-        default:
-          throw new Error('Invalid moderation action');
-      }
-
-      return review.toObject();
-    } catch (error) {
-      console.error('Error moderating review:', error);
-      throw error;
-    }
-  }
-
-  // Add helpful vote
-  async addHelpfulVote(reviewId, userId) {
-    try {
-      const review = await Review.findOne({ reviewId });
-
-      if (!review) {
-        throw new Error('Review not found');
-      }
-
-      // In a real implementation, you'd check if user already voted
-      await review.addHelpfulVote(userId);
-
-      return review.toObject();
-    } catch (error) {
-      console.error('Error adding helpful vote:', error);
-      throw error;
-    }
-  }
-
-  // Add response to review
-  async addReviewResponse(reviewId, responderId, responderType, responseText) {
-    try {
-      const review = await Review.findOne({ reviewId });
-
-      if (!review) {
-        throw new Error('Review not found');
-      }
-
-      await review.addResponse(responderId, responderType, responseText);
-
-      return review.toObject();
-    } catch (error) {
-      console.error('Error adding review response:', error);
-      throw error;
-    }
-  }
-
-  // Bulk operations for analytics
-  async getReviewsByDateRange(startDate, endDate, subjectType = null) {
-    try {
-      const query = {
-        createdAt: { $gte: startDate, $lte: endDate },
-        status: 'approved'
-      };
-
-      if (subjectType) {
-        query.subjectType = subjectType;
-      }
-
-      return await Review.find(query)
-        .sort({ createdAt: -1 })
-        .lean();
-    } catch (error) {
-      console.error('Error getting reviews by date range:', error);
-      throw error;
-    }
-  }
-
-  // Get trending reviews (most helpful)
+  // ───────────────────────────────────────────────
+  // LẤY TRENDING REVIEWS (hữu ích nhất, mới nhất)
+  // ───────────────────────────────────────────────
   async getTrendingReviews(limit = 10, days = 30) {
     try {
-      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      const daysAgo = new Date();
+      daysAgo.setDate(daysAgo.getDate() - days);
 
-      return await Review.find({
-        createdAt: { $gte: startDate },
+      const reviews = await Review.find({
         status: 'approved',
-        totalVotes: { $gte: 5 } // Minimum votes to be considered trending
+        isVisible: true,
+        createdAt: { $gte: daysAgo },
       })
-      .sort({ helpfulVotes: -1, createdAt: -1 })
-      .limit(limit)
-      .populate('response')
-      .lean();
-    } catch (error) {
-      console.error('Error getting trending reviews:', error);
-      throw error;
+        .sort({ 'helpful.count': -1, createdAt: -1 })
+        .limit(limit)
+        .populate('reviewer', 'name avatar')
+        .populate('subject.id', 'name')
+        .lean();
+
+      return reviews;
+    } catch (err) {
+      this.logger.error('Lấy trending reviews thất bại', { error: err.message });
+      throw err;
     }
   }
 
-  // Get reviews needing moderation
-  async getReviewsNeedingModeration() {
+  // ───────────────────────────────────────────────
+  // LẤY ĐÁNH GIÁ CHỜ DUYỆT
+  // ───────────────────────────────────────────────
+  async getReviewsNeedingModeration(page = 1, limit = 10) {
     try {
-      return await Review.find({
-        status: { $in: ['pending', 'flagged'] }
-      })
-      .sort({ createdAt: -1 })
-      .lean();
-    } catch (error) {
-      console.error('Error getting reviews needing moderation:', error);
-      throw error;
+      const query = {
+        status: 'pending',
+        isVisible: true,
+      };
+
+      const skip = (page - 1) * limit;
+
+      const [reviews, total] = await Promise.all([
+        Review.find(query)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .populate('reviewer', 'name avatar')
+          .populate('subject.id', 'name')
+          .lean(),
+        Review.countDocuments(query),
+      ]);
+
+      return {
+        reviews,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(total / limit),
+          totalReviews: total,
+          hasNext: skip + reviews.length < total,
+          hasPrev: page > 1,
+        },
+      };
+    } catch (err) {
+      this.logger.error('Lấy đánh giá chờ duyệt thất bại', { error: err.message });
+      throw err;
     }
   }
 
-  // Sentiment analysis (simplified implementation)
+  // ───────────────────────────────────────────────
+  // PHÂN TÍCH SENTIMENT (phiên bản đơn giản)
+  // ───────────────────────────────────────────────
   async analyzeSentiment(review) {
     try {
-      let sentimentScore = 0;
+      let score = (review.rating - 3) / 2; // Rating là yếu tố chính
 
-      // Simple sentiment analysis based on rating and keywords
-      if (review.rating >= 4) {
-        sentimentScore = 0.5; // Positive
-      } else if (review.rating <= 2) {
-        sentimentScore = -0.5; // Negative
-      }
-
-      // Analyze comment text (simplified)
       if (review.comment) {
-        const positiveWords = ['excellent', 'great', 'good', 'amazing', 'wonderful', 'fantastic'];
-        const negativeWords = ['terrible', 'bad', 'awful', 'horrible', 'worst', 'disappointing'];
+        const text = review.comment.toLowerCase();
+        const positiveWords = ['tuyệt vời', 'tốt', 'xuất sắc', 'rất hài lòng', 'đẹp', 'chuyên nghiệp'];
+        const negativeWords = ['tệ', 'xấu', 'chậm', 'thô lỗ', 'bẩn', 'nguy hiểm', 'không hài lòng'];
 
-        const comment = review.comment.toLowerCase();
-        const positiveCount = positiveWords.filter(word => comment.includes(word)).length;
-        const negativeCount = negativeWords.filter(word => comment.includes(word)).length;
+        const posCount = positiveWords.filter((w) => text.includes(w)).length;
+        const negCount = negativeWords.filter((w) => text.includes(w)).length;
 
-        if (positiveCount > negativeCount) {
-          sentimentScore = Math.max(sentimentScore, 0.3);
-        } else if (negativeCount > positiveCount) {
-          sentimentScore = Math.min(sentimentScore, -0.3);
-        }
+        score += (posCount - negCount) * 0.15;
       }
 
-      // Determine sentiment category
-      let sentiment = 'neutral';
-      if (sentimentScore > 0.2) sentiment = 'positive';
-      else if (sentimentScore < -0.2) sentiment = 'negative';
+      score = Math.max(-1, Math.min(1, score));
 
-      // Update review
-      review.sentiment = sentiment;
-      review.sentimentScore = sentimentScore;
-      await review.save();
+      review.sentimentScore = score;
+      review.sentiment = score > 0.15 ? 'positive' : score < -0.15 ? 'negative' : 'neutral';
 
-    } catch (error) {
-      console.error('Error analyzing sentiment:', error);
-      // Don't throw - sentiment analysis failure shouldn't block review creation
-    }
-  }
-
-  // Cleanup old reviews (for maintenance)
-  async cleanupOldReviews(daysOld = 365) {
-    try {
-      const cutoffDate = new Date(Date.now() - daysOld * 24 * 60 * 60 * 1000);
-
-      const result = await Review.updateMany(
-        {
-          createdAt: { $lt: cutoffDate },
-          status: 'approved',
-          helpfulVotes: { $lt: 5 } // Keep highly-rated reviews
-        },
-        { status: 'archived' }
-      );
-
-      return result.modifiedCount;
-    } catch (error) {
-      console.error('Error cleaning up old reviews:', error);
-      throw error;
+      await review.save({ validateBeforeSave: false });
+    } catch (err) {
+      this.logger.warn('Phân tích sentiment lỗi', {
+        reviewId: review._id?.toString(),
+        error: err.message,
+      });
     }
   }
 }

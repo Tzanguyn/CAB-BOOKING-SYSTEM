@@ -1,94 +1,115 @@
 #!/usr/bin/env node
 
 /**
- * Review Service Entry Point
- * CAB Booking System - Review and Rating Microservice
+ * Review Service - Entry Point
+ * CAB Booking System - Review & Rating Microservice
  */
 
 require('dotenv').config();
 
 const app = require('./src/app');
-const { connectMongoDB } = require('./src/config/mongodb');
+const { connectMongoDB, disconnectMongoDB } = require('./src/config/mongodb');
 
 const PORT = process.env.PORT || 3009;
+const NODE_ENV = process.env.NODE_ENV || 'development';
 
-// Initialize the service
+let server; // để reference khi shutdown
+
+// ────────────────────────────────────────────────
+// Khởi động server
+// ────────────────────────────────────────────────
 async function startServer() {
   try {
-    console.log('🚀 Starting Review Service...');
+    console.log('🚀 Bắt đầu khởi động Review Service...');
+    console.log(`   Environment : ${NODE_ENV}`);
+    console.log(`   Port         : ${PORT}`);
+    console.log(`   Timezone     : ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
 
-    // Connect to MongoDB
+    // Kết nối MongoDB
+    console.log('🔌 Đang kết nối MongoDB...');
     await connectMongoDB();
+    console.log('✅ MongoDB kết nối thành công');
 
-    // Start the server
-    const server = app.listen(PORT, () => {
-      console.log('✅ Review Service started successfully!');
-      console.log(`🌐 Server running on port ${PORT}`);
-      console.log(`📊 Health check: http://localhost:${PORT}/api/reviews/health`);
-      console.log(`📚 API Documentation: http://localhost:${PORT}/`);
-      console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`📅 Started at: ${new Date().toISOString()}`);
+    // Khởi động Express server
+    server = app.listen(PORT, () => {
+      console.log('───────────────────────────────────────────────');
+      console.log('✅ Review Service đã khởi động thành công!');
+      console.log(`   🌐 Listening  : http://localhost:${PORT}`);
+      console.log(`   Health check : http://localhost:${PORT}/api/reviews/health`);
+      console.log(`   Root info    : http://localhost:${PORT}/`);
+      console.log(`   Started at   : ${new Date().toISOString()}`);
+      console.log('───────────────────────────────────────────────');
     });
 
-    // Handle server errors
-    server.on('error', (error) => {
-      console.error('❌ Server error:', error);
-      process.exit(1);
-    });
+    // Graceful shutdown
+    setupGracefulShutdown();
 
-    // Graceful shutdown handling
-    const gracefulShutdown = async (signal) => {
-      console.log(`\n🛑 Received ${signal}, initiating graceful shutdown...`);
-
-      server.close(async () => {
-        console.log('✅ HTTP server closed');
-
-        try {
-          // Close database connections
-          const mongoose = require('mongoose');
-          await mongoose.connection.close();
-
-          console.log('✅ Database connections closed');
-          console.log('👋 Review Service shutdown complete');
-          process.exit(0);
-        } catch (error) {
-          console.error('❌ Error during shutdown:', error);
-          process.exit(1);
-        }
-      });
-
-      // Force shutdown after 10 seconds
-      setTimeout(() => {
-        console.error('❌ Forced shutdown after timeout');
-        process.exit(1);
-      }, 10000);
-    };
-
-    // Listen for termination signals
-    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
-    // Handle uncaught exceptions
-    process.on('uncaughtException', (error) => {
-      console.error('❌ Uncaught Exception:', error);
-      gracefulShutdown('uncaughtException');
-    });
-
-    process.on('unhandledRejection', (reason, promise) => {
-      console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-      gracefulShutdown('unhandledRejection');
-    });
-
-  } catch (error) {
-    console.error('❌ Failed to start Review Service:', error);
+  } catch (err) {
+    console.error('❌ Khởi động thất bại:', err.message);
+    if (NODE_ENV === 'development') console.error(err.stack);
     process.exit(1);
   }
 }
 
-// Handle startup errors
-process.on('warning', (warning) => {
-  console.warn('⚠️ Warning:', warning.message);
-});
+// ────────────────────────────────────────────────
+// Graceful Shutdown
+// ────────────────────────────────────────────────
+function setupGracefulShutdown() {
+  const shutdown = async (signal) => {
+    console.log(`\n🛑 Nhận tín hiệu ${signal}. Đang tắt dịch vụ an toàn...`);
 
-// Start the service
+    const timeout = setTimeout(() => {
+      console.error('⏰ Timeout shutdown → buộc thoát');
+      process.exit(1);
+    }, 15000); // 15 giây tối đa
+
+    try {
+      // 1. Đóng HTTP server trước (ngừng nhận request mới)
+      if (server) {
+        await new Promise((resolve) => server.close(resolve));
+        console.log('✅ HTTP server đã đóng');
+      }
+
+      // 2. Đóng kết nối database
+      await disconnectMongoDB();
+      console.log('✅ Kết nối MongoDB đã đóng');
+
+      console.log('👋 Dịch vụ đã tắt thành công');
+      clearTimeout(timeout);
+      process.exit(0);
+    } catch (err) {
+      console.error('❌ Lỗi khi tắt dịch vụ:', err);
+      clearTimeout(timeout);
+      process.exit(1);
+    }
+  };
+
+  // Các signal phổ biến
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT',  () => shutdown('SIGINT'));  // Ctrl+C
+
+  // Xử lý lỗi không catch được
+  process.on('uncaughtException', (err) => {
+    console.error('❌ Uncaught Exception:', err);
+    shutdown('uncaughtException');
+  });
+
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Unhandled Rejection:', reason);
+    shutdown('unhandledRejection');
+  });
+}
+
+// ────────────────────────────────────────────────
+// Chạy khởi động
+// ────────────────────────────────────────────────
 startServer();
+
+// ────────────────────────────────────────────────
+// Một số warning hữu ích
+// ────────────────────────────────────────────────
+process.on('warning', (warning) => {
+  if (warning.name === 'DeprecationWarning') {
+    console.warn(`⚠️ Deprecation: ${warning.message}`);
+  }
+});

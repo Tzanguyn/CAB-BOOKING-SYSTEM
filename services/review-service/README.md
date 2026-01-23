@@ -160,7 +160,7 @@ npm run dev
 npm test
 
 # Check health
-curl http://localhost:3006/api/reviews/health
+curl http://localhost:3009/api/reviews/health
 ```
 
 ### Testing
@@ -185,7 +185,7 @@ npm run test:integration
 docker build -t review-service .
 
 # Run container
-docker run -p 3006:3006 \
+docker run -p 3009:3009 \
   -e MONGODB_URL=mongodb://host.docker.internal:27017/cab_booking \
   -e RABBITMQ_URL=amqp://host.docker.internal:5672 \
   review-service

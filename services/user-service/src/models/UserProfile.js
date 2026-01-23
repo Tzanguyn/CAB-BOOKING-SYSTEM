@@ -18,8 +18,15 @@ const userProfileSchema = new mongoose.Schema({
     type: Date,
     validate: {
       validator: function(value) {
+        if (!value) return true; // Optional field
         // Must be at least 18 years old
-        const age = new Date().getFullYear() - value.getFullYear();
+        const today = new Date();
+        const birthDate = new Date(value);
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
         return age >= 18;
       },
       message: 'User must be at least 18 years old'
@@ -254,7 +261,7 @@ userProfileSchema.statics.getLoyaltyLeaderboard = function(limit = 10) {
   return this.find({})
     .sort({ loyaltyPoints: -1, totalRides: -1 })
     .limit(limit)
-    .select('userId firstName lastName loyaltyPoints loyaltyTier totalRides averageRating');
+    .select('userId loyaltyPoints loyaltyTier totalRides totalSpent averageRating');
 };
 
 // Pre-save middleware to update loyalty tier

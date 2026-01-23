@@ -1,0 +1,469 @@
+{
+	"info": {
+		"_postman_id": "user-service-collection",
+		"name": "User Service API",
+		"description": "Postman collection for User Service - CAB Booking System",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": ["{{base_url}}"],
+							"path": ["health"]
+						},
+						"description": "Check if the service is running"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Profile Management",
+			"item": [
+				{
+					"name": "Create Profile",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"description": "JWT token (if auth is enabled)"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"avatar\": \"https://example.com/avatar.jpg\",\n  \"dateOfBirth\": \"1990-01-01\",\n  \"gender\": \"male\",\n  \"preferredLanguage\": \"vi\",\n  \"marketingEmails\": true,\n  \"smsNotifications\": true,\n  \"pushNotifications\": true,\n  \"emergencyContact\": {\n    \"name\": \"John Doe\",\n    \"phone\": \"+84123456789\",\n    \"relationship\": \"spouse\"\n  },\n  \"preferredVehicleType\": \"standard\",\n  \"accessibilityNeeds\": [],\n  \"appSettings\": {\n    \"theme\": \"dark\",\n    \"mapStyle\": \"standard\",\n    \"notificationSounds\": true\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/profile",
+							"host": ["{{base_url}}"],
+							"path": ["profile"]
+						},
+						"description": "Create a new user profile"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/profile",
+							"host": ["{{base_url}}"],
+							"path": ["profile"]
+						},
+						"description": "Get current user profile"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Profile",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"avatar\": \"https://example.com/new-avatar.jpg\",\n  \"preferredLanguage\": \"en\",\n  \"marketingEmails\": false,\n  \"appSettings\": {\n    \"theme\": \"light\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/profile",
+							"host": ["{{base_url}}"],
+							"path": ["profile"]
+						},
+						"description": "Update user profile"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Profile Completeness",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/profile/completeness",
+							"host": ["{{base_url}}"],
+							"path": ["profile", "completeness"]
+						},
+						"description": "Get profile completeness percentage"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Ride History",
+			"item": [
+				{
+					"name": "Get Ride History",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/rides?page=1&limit=10",
+							"host": ["{{base_url}}"],
+							"path": ["rides"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number"
+								},
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Items per page (max 50)"
+								}
+							]
+						},
+						"description": "Get paginated ride history"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Ride Details",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/rides/:rideId",
+							"host": ["{{base_url}}"],
+							"path": ["rides", ":rideId"],
+							"variable": [
+								{
+									"key": "rideId",
+									"value": "ride-123",
+									"description": "Ride ID"
+								}
+							]
+						},
+						"description": "Get details of a specific ride"
+					},
+					"response": []
+				},
+				{
+					"name": "Rate Ride",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"rating\": 5,\n  \"review\": \"Great ride! Very comfortable and driver was professional.\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/rides/:rideId/rate",
+							"host": ["{{base_url}}"],
+							"path": ["rides", ":rideId", "rate"],
+							"variable": [
+								{
+									"key": "rideId",
+									"value": "ride-123"
+								}
+							]
+						},
+						"description": "Rate and review a completed ride"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Statistics",
+			"item": [
+				{
+					"name": "Get User Statistics",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/statistics",
+							"host": ["{{base_url}}"],
+							"path": ["statistics"]
+						},
+						"description": "Get user statistics (total rides, spending, ratings, etc.)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Popular Destinations",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/popular-destinations?limit=5",
+							"host": ["{{base_url}}"],
+							"path": ["popular-destinations"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "5",
+									"description": "Number of destinations to return"
+								}
+							]
+						},
+						"description": "Get user's most popular destinations"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Favorite Locations",
+			"item": [
+				{
+					"name": "Get Favorite Locations",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/favorite-locations",
+							"host": ["{{base_url}}"],
+							"path": ["favorite-locations"]
+						},
+						"description": "Get all favorite locations"
+					},
+					"response": []
+				},
+				{
+					"name": "Add Favorite Location",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Home\",\n  \"address\": \"123 Main Street, Ho Chi Minh City\",\n  \"lat\": 10.762622,\n  \"lng\": 106.660172,\n  \"type\": \"home\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/favorite-locations",
+							"host": ["{{base_url}}"],
+							"path": ["favorite-locations"]
+						},
+						"description": "Add a new favorite location"
+					},
+					"response": []
+				},
+				{
+					"name": "Remove Favorite Location",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/favorite-locations/:index",
+							"host": ["{{base_url}}"],
+							"path": ["favorite-locations", ":index"],
+							"variable": [
+								{
+									"key": "index",
+									"value": "0",
+									"description": "Index of the location to remove"
+								}
+							]
+						},
+						"description": "Remove a favorite location by index"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Loyalty Program",
+			"item": [
+				{
+					"name": "Get Loyalty Status",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/loyalty/status",
+							"host": ["{{base_url}}"],
+							"path": ["loyalty", "status"]
+						},
+						"description": "Get user's loyalty points and tier"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Loyalty Leaderboard",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/loyalty/leaderboard?limit=10",
+							"host": ["{{base_url}}"],
+							"path": ["loyalty", "leaderboard"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Number of top users to return"
+								}
+							]
+						},
+						"description": "Get loyalty leaderboard"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Internal API",
+			"item": [
+				{
+					"name": "Add Ride to History (Internal)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-Internal-Service",
+								"value": "booking-service",
+								"description": "Internal service identifier"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"userId\": \"user-123\",\n  \"rideId\": \"ride-456\",\n  \"driverId\": \"driver-789\",\n  \"driverName\": \"John Driver\",\n  \"driverRating\": 4.8,\n  \"vehicle\": \"Toyota Camry\",\n  \"licensePlate\": \"30A-12345\",\n  \"pickup\": {\n    \"address\": \"123 Main St\",\n    \"coordinates\": {\n      \"lat\": 10.762622,\n      \"lng\": 106.660172\n    }\n  },\n  \"destination\": {\n    \"address\": \"456 Park Ave\",\n    \"coordinates\": {\n      \"lat\": 10.775658,\n      \"lng\": 106.700428\n    }\n  },\n  \"status\": \"completed\",\n  \"requestedAt\": \"2024-01-15T10:00:00Z\",\n  \"acceptedAt\": \"2024-01-15T10:02:00Z\",\n  \"startedAt\": \"2024-01-15T10:05:00Z\",\n  \"completedAt\": \"2024-01-15T10:30:00Z\",\n  \"baseFare\": 25000,\n  \"distance\": 5.5,\n  \"duration\": 1500,\n  \"distanceFare\": 15000,\n  \"timeFare\": 10000,\n  \"tolls\": 0,\n  \"taxes\": 5000,\n  \"discount\": 0,\n  \"totalAmount\": 55000,\n  \"currency\": \"VND\",\n  \"paymentMethod\": \"wallet\",\n  \"route\": {\n    \"distance\": 5500,\n    \"duration\": 1500,\n    \"polyline\": \"encoded_polyline_string\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/internal/rides",
+							"host": ["{{base_url}}"],
+							"path": ["internal", "rides"]
+						},
+						"description": "Internal API: Add a completed ride to user history (called by booking service)"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3010/api/users",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string",
+			"description": "JWT token (if authentication is enabled)"
+		},
+		{
+			"key": "user_id",
+			"value": "user-123",
+			"type": "string",
+			"description": "User ID for testing (sent in X-User-Id header)"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Auto-add X-User-Id header to all requests",
+					"if (pm.collectionVariables.get('user_id')) {",
+					"    pm.request.headers.add({",
+					"        key: 'X-User-Id',",
+					"        value: pm.collectionVariables.get('user_id')",
+					"    });",
+					"}"
+				]
+			}
+		}
+	]
+}
+

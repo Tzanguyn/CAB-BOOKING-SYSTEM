@@ -204,7 +204,7 @@ npm run dev
 docker build -t cab-booking/auth-service .
 
 # Run the container
-docker run -p 3001:3001 --env-file .env cab-booking/auth-service
+docker run -p 3004:3004 --env-file .env cab-booking/auth-service
 ```
 
 ### Docker Compose
@@ -232,7 +232,7 @@ npm run test:integration
 
 ```bash
 # Register a user
-curl -X POST http://localhost:3001/auth/register \
+curl -X POST http://localhost:3004/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "test@example.com",
@@ -243,7 +243,7 @@ curl -X POST http://localhost:3001/auth/register \
   }'
 
 # Login
-curl -X POST http://localhost:3001/auth/login \
+curl -X POST http://localhost:3004/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "test@example.com",
@@ -256,7 +256,7 @@ curl -X POST http://localhost:3001/auth/login \
 ### Health Check
 
 ```bash
-curl http://localhost:3001/auth/health
+curl http://localhost:3004/auth/health
 ```
 
 ### Metrics

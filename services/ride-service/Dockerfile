@@ -30,11 +30,11 @@ RUN chown -R nextjs:nodejs /app
 USER nextjs
 
 # Expose port
-EXPOSE 3006
+EXPOSE 3009
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3006/api/rides/health', (res) => { \
+    CMD node -e "require('http').get('http://localhost:3009/api/rides/health', (res) => { \
         process.exit(res.statusCode === 200 ? 0 : 1) \
     }).on('error', () => process.exit(1))"
 

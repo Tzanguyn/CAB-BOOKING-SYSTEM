@@ -49,15 +49,15 @@ const proxy = (target) =>
 // Route to upstream services (container DNS names)
 app.use(
 	'/auth',
-	proxy(process.env.AUTH_SERVICE_URL || 'http://auth-service:3001')
+	proxy(process.env.AUTH_SERVICE_URL || 'http://auth-service:3004')
 )
 app.use(
 	'/api/users',
-	proxy(process.env.USER_SERVICE_URL || 'http://user-service:3010')
+	proxy(process.env.USER_SERVICE_URL || 'http://user-service:3005')
 )
 app.use(
 	'/api/drivers',
-	proxy(process.env.DRIVER_SERVICE_URL || 'http://driver-service:3004')
+	proxy(process.env.DRIVER_SERVICE_URL || 'http://driver-service:3007')
 )
 app.use(
 	'/api/bookings',
@@ -65,23 +65,23 @@ app.use(
 )
 app.use(
 	'/api/rides',
-	proxy(process.env.RIDE_SERVICE_URL || 'http://ride-service:3006')
+	proxy(process.env.RIDE_SERVICE_URL || 'http://ride-service:3009')
 )
 app.use(
 	'/api/payments',
-	proxy(process.env.PAYMENT_SERVICE_URL || 'http://payment-service:3007')
+	proxy(process.env.PAYMENT_SERVICE_URL || 'http://payment-service:3002')
 )
 app.use(
 	'/api/pricing',
-	proxy(process.env.PRICING_SERVICE_URL || 'http://pricing-service:3008')
+	proxy(process.env.PRICING_SERVICE_URL || 'http://pricing-service:3001')
 )
 app.use(
 	'/api/notifications',
-	proxy(process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:3002')
+	proxy(process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:3008')
 )
 app.use(
 	'/api/reviews',
-	proxy(process.env.REVIEW_SERVICE_URL || 'http://review-service:3009')
+	proxy(process.env.REVIEW_SERVICE_URL || 'http://review-service:3006')
 )
 
 app.get('/', (req, res) => {

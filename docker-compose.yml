@@ -137,7 +137,7 @@ services:
       dockerfile: services/auth-service/Dockerfile
     container_name: cab-booking-auth-service
     ports:
-      - "3001:3001"
+      - "3004:3004"
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
@@ -156,7 +156,7 @@ services:
     networks:
       - cab-booking-network
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/auth/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3004/auth/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -173,7 +173,7 @@ services:
       dockerfile: ${DOCKERFILE:-Dockerfile}
     container_name: cab-booking-user-service
     ports:
-      - "3010:3010"
+      - "3005:3005"
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - MONGODB_URL=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_booking?authSource=admin
@@ -189,7 +189,7 @@ services:
     networks:
       - cab-booking-network
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3010/api/users/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3005/api/users/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -206,7 +206,7 @@ services:
       dockerfile: ${DOCKERFILE:-Dockerfile}
     container_name: cab-booking-driver-service
     ports:
-      - "3004:3004"
+      - "3007:3007"
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
@@ -225,7 +225,7 @@ services:
     networks:
       - cab-booking-network
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3004/api/drivers/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3007/api/drivers/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -278,7 +278,7 @@ services:
       dockerfile: ${DOCKERFILE:-Dockerfile}
     container_name: cab-booking-ride-service
     ports:
-      - "3006:3006"
+      - "3009:3009"
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
@@ -297,7 +297,7 @@ services:
     networks:
       - cab-booking-network
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3006/api/rides/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3009/api/rides/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -314,7 +314,7 @@ services:
       dockerfile: ${DOCKERFILE:-Dockerfile}
     container_name: cab-booking-payment-service
     ports:
-      - "3007:3007"
+      - "3002:3002"
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
@@ -330,7 +330,7 @@ services:
     networks:
       - cab-booking-network
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3007/api/payments/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3002/api/payments/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -347,7 +347,7 @@ services:
       dockerfile: ${DOCKERFILE:-Dockerfile}
     container_name: cab-booking-pricing-service
     ports:
-      - "3008:3008"
+      - "3001:3001"
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
@@ -363,7 +363,7 @@ services:
     networks:
       - cab-booking-network
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3008/api/pricing/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/api/pricing/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -380,7 +380,7 @@ services:
       dockerfile: ${DOCKERFILE:-Dockerfile}
     container_name: cab-booking-notification-service
     ports:
-      - "3002:3002"
+      - "3008:3008"
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
@@ -393,7 +393,7 @@ services:
     networks:
       - cab-booking-network
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3002/api/notifications/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3008/api/notifications/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -410,7 +410,7 @@ services:
       dockerfile: ${DOCKERFILE:-Dockerfile}
     container_name: cab-booking-review-service
     ports:
-      - "3009:3009"
+      - "3006:3006"
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - MONGODB_URL=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_booking?authSource=admin
@@ -424,7 +424,7 @@ services:
     networks:
       - cab-booking-network
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3009/api/reviews/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3006/api/reviews/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -447,15 +447,15 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=${NODE_ENV:-development}
-      - AUTH_SERVICE_URL=http://auth-service:3001
-      - USER_SERVICE_URL=http://user-service:3010
-      - DRIVER_SERVICE_URL=http://driver-service:3004
+      - AUTH_SERVICE_URL=http://auth-service:3004
+      - USER_SERVICE_URL=http://user-service:3005
+      - DRIVER_SERVICE_URL=http://driver-service:3007
       - BOOKING_SERVICE_URL=http://booking-service:3003
-      - RIDE_SERVICE_URL=http://ride-service:3006
-      - PAYMENT_SERVICE_URL=http://payment-service:3007
-      - PRICING_SERVICE_URL=http://pricing-service:3008
-      - NOTIFICATION_SERVICE_URL=http://notification-service:3002
-      - REVIEW_SERVICE_URL=http://review-service:3009
+      - RIDE_SERVICE_URL=http://ride-service:3009
+      - PAYMENT_SERVICE_URL=http://payment-service:3002
+      - PRICING_SERVICE_URL=http://pricing-service:3001
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3008
+      - REVIEW_SERVICE_URL=http://review-service:3006
     depends_on:
       - auth-service
       - user-service

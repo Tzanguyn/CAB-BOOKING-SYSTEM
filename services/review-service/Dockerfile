@@ -30,11 +30,11 @@ RUN chown -R reviewapp:nodejs /app
 USER reviewapp
 
 # Expose port
-EXPOSE 3009
+EXPOSE 3006
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3009/api/reviews/health', (res) => { \
+    CMD node -e "require('http').get('http://localhost:3006/api/reviews/health', (res) => { \
         process.exit(res.statusCode === 200 ? 0 : 1) \
     }).on('error', () => process.exit(1))"
 

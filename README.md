@@ -401,14 +401,14 @@ docker-compose --profile development logs -f auth-service
 
 # Health checks
 curl http://localhost:3000/health              # API Gateway
-curl http://localhost:3001/auth/health         # Auth Service
-curl http://localhost:3009/api/reviews/health  # Review Service
-curl http://localhost:3010/api/users/health    # User Service
-curl http://localhost:3004/api/drivers/health  # Driver Service
-curl http://localhost:3005/api/rides/health    # Ride Service
-curl http://localhost:3006/api/payments/health # Payment Service
-curl http://localhost:3007/api/notifications/health # Notification Service
-curl http://localhost:3008/api/pricing/health  # Pricing Service
+curl http://localhost:3004/auth/health         # Auth Service
+curl http://localhost:3006/api/reviews/health  # Review Service
+curl http://localhost:3005/api/users/health    # User Service
+curl http://localhost:3007/api/drivers/health  # Driver Service
+curl http://localhost:3009/api/rides/health    # Ride Service
+curl http://localhost:3002/api/payments/health # Payment Service
+curl http://localhost:3008/api/notifications/health # Notification Service
+curl http://localhost:3001/api/pricing/health  # Pricing Service
 
 # RabbitMQ Management UI
 open http://localhost:15672
@@ -679,13 +679,13 @@ docker-compose up -d --scale notification-service=2
 ```bash
 # Service health endpoints
 curl http://localhost:3000/health           # API Gateway
-curl http://localhost:3001/auth/health       # Auth Service
-curl http://localhost:3009/api/reviews/health # Review Service
+curl http://localhost:3004/auth/health       # Auth Service
+curl http://localhost:3006/api/reviews/health # Review Service
 
 # Database health
-curl http://localhost:3001/auth/health/db    # PostgreSQL
-curl http://localhost:3010/users/health/db   # MongoDB
-curl http://localhost:3001/auth/health/redis # Redis
+curl http://localhost:3004/auth/health/db    # PostgreSQL
+curl http://localhost:3005/users/health/db   # MongoDB
+curl http://localhost:3004/auth/health/redis # Redis
 ```
 
 ### Metrics & Monitoring
@@ -696,7 +696,7 @@ curl http://localhost:3001/auth/health/redis # Redis
 scrape_configs:
   - job_name: 'cab-booking-services'
     static_configs:
-      - targets: ['api-gateway:3000', 'auth-service:3001', 'review-service:3009']
+      - targets: ['api-gateway:3000', 'auth-service:3004', 'review-service:3006']
     metrics_path: '/metrics'
 ```
 

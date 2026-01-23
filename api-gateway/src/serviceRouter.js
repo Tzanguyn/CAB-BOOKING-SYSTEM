@@ -24,7 +24,7 @@ class ServiceRouter {
     // Service configurations with multiple instances for load balancing
     this.services.set('auth-service', {
       instances: [
-        { url: 'http://auth-service:3001', weight: 1, healthy: true },
+        { url: 'http://auth-service:3004', weight: 1, healthy: true },
       ],
       healthCheck: '/auth/health',
       timeout: 30000,
@@ -33,7 +33,7 @@ class ServiceRouter {
 
     this.services.set('user-service', {
       instances: [
-        { url: 'http://user-service:3010', weight: 1, healthy: true },
+        { url: 'http://user-service:3005', weight: 1, healthy: true },
       ],
       healthCheck: '/api/users/health',
       timeout: 30000,
@@ -42,7 +42,7 @@ class ServiceRouter {
 
     this.services.set('driver-service', {
       instances: [
-        { url: 'http://driver-service:3004', weight: 1, healthy: true },
+        { url: 'http://driver-service:3007', weight: 1, healthy: true },
       ],
       healthCheck: '/api/drivers/health',
       timeout: 30000,
@@ -51,7 +51,7 @@ class ServiceRouter {
 
     this.services.set('ride-service', {
       instances: [
-        { url: 'http://ride-service:3005', weight: 1, healthy: true },
+        { url: 'http://ride-service:3009', weight: 1, healthy: true },
       ],
       healthCheck: '/api/rides/health',
       timeout: 30000,
@@ -60,7 +60,7 @@ class ServiceRouter {
 
     this.services.set('payment-service', {
       instances: [
-        { url: 'http://payment-service:3006', weight: 1, healthy: true },
+        { url: 'http://payment-service:3002', weight: 1, healthy: true },
       ],
       healthCheck: '/api/payments/health',
       timeout: 30000,
@@ -69,7 +69,7 @@ class ServiceRouter {
 
     this.services.set('pricing-service', {
       instances: [
-        { url: 'http://pricing-service:3008', weight: 1, healthy: true },
+        { url: 'http://pricing-service:3001', weight: 1, healthy: true },
       ],
       healthCheck: '/api/pricing/health',
       timeout: 30000,
@@ -78,7 +78,7 @@ class ServiceRouter {
 
     this.services.set('notification-service', {
       instances: [
-        { url: 'http://notification-service:3007', weight: 1, healthy: true },
+        { url: 'http://notification-service:3008', weight: 1, healthy: true },
       ],
       healthCheck: '/api/notifications/health',
       timeout: 30000,

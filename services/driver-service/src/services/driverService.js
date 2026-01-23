@@ -1,124 +1,99 @@
-// Temporarily disable shared imports
-// const { RabbitMQClient, EXCHANGES, EVENT_TYPES } = require('../../../shared');
-const RabbitMQClient = null;
-const EXCHANGES = {};
-const EVENT_TYPES = {};
-
 const DriverRepository = require('../repositories/driverRepository');
 
 class DriverService {
   constructor() {
     this.driverRepository = new DriverRepository();
-    this.rabbitMQClient = null;
   }
 
-  // Initialize service
   async initialize() {
-    // RabbitMQ disabled for now
     console.log('✅ Driver Service: RabbitMQ disabled for now');
   }
 
-  // Driver Profile Management
+  // =========================
+  // Driver Profile
+  // =========================
   async createDriverProfile(driverData) {
-    console.log('🚗 Creating driver profile:', driverData.driverId);
+  console.log('🚗 Creating driver profile:', driverData.driverId);
 
-    const driver = await this.driverRepository.create({
-      driverId: driverData.driverId,
-      name: driverData.name,
-      email: driverData.email,
-      phone: driverData.phone,
-      vehicle: driverData.vehicle,
-      licenseNumber: driverData.licenseNumber,
-      status: 'offline',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    });
+  const driver = await this.driverRepository.createDriver({
+    driverId: driverData.driverId,
 
-    return driver;
-  }
+    // name mapping
+    firstName: driverData.firstName,
+    lastName: driverData.lastName,
+
+    email: driverData.email,
+    phone: driverData.phone,
+
+    dateOfBirth: driverData.dateOfBirth,
+    licenseNumber: driverData.licenseNumber,
+    licenseExpiryDate: driverData.licenseExpiryDate,
+
+    vehicle: driverData.vehicle,
+
+    status: 'offline',
+    isActive: true,
+    isVerified: false,
+
+    createdAt: new Date(),
+    updatedAt: new Date()
+  });
+
+  return driver;
+}
+
 
   async getDriverProfile(driverId) {
-    console.log('🚗 Getting driver profile:', driverId);
-    return await this.driverRepository.findByDriverId(driverId);
+    return await this.driverRepository.getDriverById(driverId);
   }
 
   async updateDriverProfile(driverId, updateData) {
-    console.log('🚗 Updating driver profile:', driverId);
-    return await this.driverRepository.update(driverId, {
-      ...updateData,
-      updatedAt: new Date()
-    });
+    return await this.driverRepository.updateDriver(driverId, updateData);
   }
 
-  // Location Tracking
+  // =========================
+  // Location
+  // =========================
   async updateDriverLocation(driverId, location) {
-    console.log('📍 Updating driver location:', driverId, location);
-
-    // Update in Redis cache (simulated)
-    // In real implementation, this would use Redis Geo commands
-
-    return {
+    return await this.driverRepository.updateDriverLocation(
       driverId,
-      location,
-      timestamp: new Date().toISOString(),
-      status: 'updated'
-    };
+      location
+    );
   }
 
-  async findNearbyDrivers(lat, lng, radiusKm = 5) {
-    console.log('🔍 Finding nearby drivers:', { lat, lng, radiusKm });
-
-    // In real implementation, this would use Redis Geo commands
-    // For now, return mock data
-    return {
-      center: { lat, lng },
-      radius: radiusKm,
-      drivers: [],
-      count: 0,
-      timestamp: new Date().toISOString()
-    };
+  async findNearbyDrivers(lat, lng, radius = 5) {
+    return await this.driverRepository.findAvailableDrivers(
+      lat,
+      lng,
+      radius
+    );
   }
 
-  // Driver Status
+  // =========================
+  // Status
+  // =========================
   async updateDriverStatus(driverId, status) {
-    console.log('📊 Updating driver status:', driverId, status);
-
-    const result = await this.driverRepository.update(driverId, {
-      status,
-      updatedAt: new Date()
-    });
-
-    return {
-      driverId,
-      status,
-      timestamp: new Date().toISOString()
-    };
+    return await this.driverRepository.updateDriverStatus(driverId, status);
   }
 
   async getDriverStatus(driverId) {
-    console.log('📊 Getting driver status:', driverId);
+    const driver = await this.driverRepository.getDriverById(driverId);
+    if (!driver) return null;
 
-    const driver = await this.driverRepository.findByDriverId(driverId);
-    return driver ? {
+    return {
       driverId,
-      status: driver.status,
-      timestamp: driver.updatedAt
-    } : null;
+      status: driver.status
+    };
   }
 
-  // Earnings
+  // =========================
+  // Earnings (mock)
+  // =========================
   async getDriverEarnings(driverId) {
-    console.log('💰 Getting driver earnings:', driverId);
-
-    // Mock earnings data
     return {
       driverId,
       totalEarnings: 0,
-      todaysEarnings: 0,
-      weeklyEarnings: 0,
-      monthlyEarnings: 0,
-      currency: 'USD',
-      lastUpdated: new Date().toISOString()
+      today: 0
     };
   }
 }

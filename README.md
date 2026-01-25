@@ -446,7 +446,7 @@ postman request POST 'http://localhost:3004/auth/login' \
   --body '{"email": "driver01@gmail.com", "password": "TestPass123!"}'
 #profile
 postman request 'http://localhost:3004/auth/profile' \
-  --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIwZWE4NTc3NS1kNTU4LTQ4NGUtODAyZi1kZDIxYmI2MmQwM2MiLCJlbWFpbCI6ImNhbXZpQGV4YW1wbGUuY29tIiwicm9sZSI6ImN1c3RvbWVyIiwiZGV2aWNlRmluZ2VycHJpbnQiOiJiNmFjODQ5NmJiOTBlMGEzODE1ODA4NTM5ODUzMzFiNmJiYmRlZDlmODhhNmFjZTgzNDRkZjE3ZjMxNDhiOTU3IiwiaWF0IjoxNzY5MjQxNzg4LCJleHAiOjE3NjkyNDI2ODgsImF1ZCI6ImNhYi1ib29raW5nLXN5c3RlbSIsImlzcyI6ImNhYi1ib29raW5nLWF1dGgtc2VydmljZSJ9.PQvAnYbFN0d66rBJzGaXXwHnUMRv45kurV1OMtM96vg' \
+  --header 'Authorization: Bearer YOUR_JWT_TOKEN \
   --body ''
 # Create booking
 curl -X POST http://localhost:3000/bookings \

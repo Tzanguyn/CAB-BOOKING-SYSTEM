@@ -6,6 +6,7 @@ const helmet = require('helmet')
 const morgan = require('morgan')
 const responseTime = require('response-time')
 const { createProxyMiddleware } = require('http-proxy-middleware')
+const { authenticateToken } = require('./middlewares/auth.middleware')
 
 dotenv.config()
 
@@ -13,7 +14,7 @@ const app = express()
 
 app.use(helmet({ contentSecurityPolicy: false }))
 app.use(
-	cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true })
+    cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true })
 )
 app.use(compression())
 app.use(express.json({ limit: '10mb' }))
@@ -22,82 +23,92 @@ app.use(responseTime())
 app.use(morgan('combined'))
 
 app.get('/health', (req, res) => {
-	res.json({
-		service: 'api-gateway',
-		status: 'healthy',
-		timestamp: new Date().toISOString(),
-		uptime: process.uptime()
-	})
+    res.json({
+        service: 'api-gateway',
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+    })
 })
 
 const proxy = (target) =>
-	createProxyMiddleware({
-		target,
-		changeOrigin: true,
-		xfwd: true,
-		proxyTimeout: 30000,
-		timeout: 30000,
-		onError: (err, req, res) => {
-			res.status(502).json({
-				error: 'Bad gateway',
-				target,
-				message: err.message
-			})
-		}
-	})
+    createProxyMiddleware({
+        target,
+        changeOrigin: true,
+        xfwd: true,
+        proxyTimeout: 30000,
+        timeout: 30000,
+        onError: (err, req, res) => {
+            res.status(502).json({
+                error: 'Bad gateway',
+                target,
+                message: err.message
+            })
+        }
+    })
 
 // Route to upstream services (container DNS names)
 app.use(
-	'/auth',
-	proxy(process.env.AUTH_SERVICE_URL || 'http://auth-service:3004')
+    '/auth',
+    proxy(process.env.AUTH_SERVICE_URL || 'http://auth-service:3004')
+)
+
+// Protected routes - require authentication
+app.use(
+    '/api/users',
+    authenticateToken,
+    proxy(process.env.USER_SERVICE_URL || 'http://user-service:3005')
 )
 app.use(
-	'/api/users',
-	proxy(process.env.USER_SERVICE_URL || 'http://user-service:3005')
+    '/api/drivers',
+    authenticateToken,
+    proxy(process.env.DRIVER_SERVICE_URL || 'http://driver-service:3007')
 )
 app.use(
-	'/api/drivers',
-	proxy(process.env.DRIVER_SERVICE_URL || 'http://driver-service:3007')
+    '/api/bookings',
+    authenticateToken,
+    proxy(process.env.BOOKING_SERVICE_URL || 'http://booking-service:3003')
 )
 app.use(
-	'/api/bookings',
-	proxy(process.env.BOOKING_SERVICE_URL || 'http://booking-service:3003')
+    '/api/rides',
+    authenticateToken,
+    proxy(process.env.RIDE_SERVICE_URL || 'http://ride-service:3009')
 )
 app.use(
-	'/api/rides',
-	proxy(process.env.RIDE_SERVICE_URL || 'http://ride-service:3009')
+    '/api/payments',
+    authenticateToken,
+    proxy(process.env.PAYMENT_SERVICE_URL || 'http://payment-service:3002')
 )
 app.use(
-	'/api/payments',
-	proxy(process.env.PAYMENT_SERVICE_URL || 'http://payment-service:3002')
+    '/api/pricing',
+    authenticateToken,
+    proxy(process.env.PRICING_SERVICE_URL || 'http://pricing-service:3001')
 )
 app.use(
-	'/api/pricing',
-	proxy(process.env.PRICING_SERVICE_URL || 'http://pricing-service:3001')
+    '/api/notifications',
+    authenticateToken,
+    proxy(process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:3008')
 )
 app.use(
-	'/api/notifications',
-	proxy(process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:3008')
-)
-app.use(
-	'/api/reviews',
-	proxy(process.env.REVIEW_SERVICE_URL || 'http://review-service:3006')
+    '/api/reviews',
+    authenticateToken,
+    proxy(process.env.REVIEW_SERVICE_URL || 'http://review-service:3006')
 )
 
 app.get('/', (req, res) => {
-	res.json({
-		service: 'api-gateway',
-		status: 'running',
-		timestamp: new Date().toISOString()
-	})
+    res.json({
+        service: 'api-gateway',
+        status: 'running',
+        timestamp: new Date().toISOString()
+    })
 })
 
 app.use((req, res) => {
-	res.status(404).json({
-		error: 'Endpoint not found',
-		path: req.originalUrl,
-		method: req.method
-	})
+    res.status(404).json({
+        error: 'Endpoint not found',
+        path: req.originalUrl,
+        method: req.method
+    })
 })
 
 module.exports = app

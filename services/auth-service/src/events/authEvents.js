@@ -1,6 +1,6 @@
 // Temporarily disable shared imports
 // const { RabbitMQClient, QUEUES } = require('../../../shared');
-const RabbitMQClient = null;
+const RabbitMQClient = require('../utils/rabbitmq');
 const QUEUES = {};
 
 class AuthEvents {
@@ -11,18 +11,17 @@ class AuthEvents {
 
   // Initialize RabbitMQ for events
   async initialize() {
-    try {
-      this.rabbitMQClient = new RabbitMQClient();
-      await this.rabbitMQClient.connect();
-
-      // Subscribe to relevant queues
-      await this.setupEventListeners();
-
-      console.log('✅ Auth Service Events: Initialized');
-    } catch (error) {
-      console.error('❌ Auth Service Events: Initialization failed:', error);
-    }
+  try {
+    // Không cần truyền tham số vì Class ở Bước 1 đã tự lấy từ process.env rồi
+    this.rabbitMQClient = new RabbitMQClient(); 
+    await this.rabbitMQClient.connect();
+    
+    await this.setupEventListeners();
+    console.log('✅ Auth Service Events: Initialized');
+  } catch (error) {
+    console.error('❌ Auth Service Events: Initialization failed:', error);
   }
+}
 
   // Setup event listeners
   async setupEventListeners() {

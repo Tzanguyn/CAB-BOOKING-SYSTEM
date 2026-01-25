@@ -430,17 +430,24 @@ node test-rabbitmq.js
 
 # API Testing với curl
 # Register user
-curl -X POST http://localhost:3000/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "test@example.com",
-    "phone": "+1234567890",
-    "password": "TestPass123!",
-    "firstName": "Test",
-    "lastName": "User",
-    "role": "customer"
-  }'
-
+postman request POST 'http://localhost:3004/auth/register' \
+  --header 'Content-Type: application/json' \
+  --body '{
+  "email": "driver01@gmail.com",
+  "phone": "0909123456",
+  "password": "TestPass123!",
+  "firstName": "Nguyen",
+  "lastName": "Driver",
+  "role": "driver"
+}'
+#Login
+postman request POST 'http://localhost:3004/auth/login' \
+  --header 'Content-Type: application/json' \
+  --body '{"email": "driver01@gmail.com", "password": "TestPass123!"}'
+#profile
+postman request 'http://localhost:3004/auth/profile' \
+  --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIwZWE4NTc3NS1kNTU4LTQ4NGUtODAyZi1kZDIxYmI2MmQwM2MiLCJlbWFpbCI6ImNhbXZpQGV4YW1wbGUuY29tIiwicm9sZSI6ImN1c3RvbWVyIiwiZGV2aWNlRmluZ2VycHJpbnQiOiJiNmFjODQ5NmJiOTBlMGEzODE1ODA4NTM5ODUzMzFiNmJiYmRlZDlmODhhNmFjZTgzNDRkZjE3ZjMxNDhiOTU3IiwiaWF0IjoxNzY5MjQxNzg4LCJleHAiOjE3NjkyNDI2ODgsImF1ZCI6ImNhYi1ib29raW5nLXN5c3RlbSIsImlzcyI6ImNhYi1ib29raW5nLWF1dGgtc2VydmljZSJ9.PQvAnYbFN0d66rBJzGaXXwHnUMRv45kurV1OMtM96vg' \
+  --body ''
 # Create booking
 curl -X POST http://localhost:3000/bookings \
   -H "Content-Type: application/json" \

@@ -383,10 +383,13 @@ services:
       - "3008:3008"
     environment:
       - NODE_ENV=${NODE_ENV:-development}
-      - DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
+      - PORT=3008
+      - MONGO_URI=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_notification_db?authSource=admin
       - RABBITMQ_URL=amqp://cab_admin:cab123%21%40%23@rabbitmq:5672/cab-booking
+      - CORS_ORIGIN=http://localhost:5173
+      - CLIENT_URL=http://localhost:5173
     depends_on:
-      postgres:
+      mongodb:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy

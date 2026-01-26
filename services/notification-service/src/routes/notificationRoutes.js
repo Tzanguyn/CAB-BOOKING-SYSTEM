@@ -1,65 +1,62 @@
+/**
+ * Notification Routes
+ * Defines all API endpoints for notification service
+ */
+
 const express = require('express');
-const NotificationController = require('../controllers/notificationController');
+const notificationController = require('../controllers/notificationController');
 
 const router = express.Router();
-const notificationController = new NotificationController();
 
-// Initialize controller
-notificationController.initialize().catch(console.error);
+/**
+ * Health check endpoint
+ * GET /notifications/health
+ */
+router.get('/health', notificationController.healthCheck);
 
-// --- Health Check ---
-router.get('/health', (req, res) => {
-  res.json({
-    service: 'notification-service',
-    status: 'healthy',
-    timestamp: new Date().toISOString()
-  });
-});
+/**
+ * Send a single notification
+ * POST /notifications/send
+ * Body: { userId, email?, phone?, type?, title, message, metadata?, priority? }
+ */
+router.post('/send', notificationController.sendNotification);
 
-// --- Notification Endpoints ---
-// Send email notification
-router.post('/email', async (req, res) => {
-  try {
-    const { to, subject, body, template } = req.body;
-    const result = await notificationController.sendEmail({ to, subject, body, template });
-    res.json({ success: true, result });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+/**
+ * Send bulk notifications
+ * POST /notifications/bulk
+ * Body: { notifications: [{ userId, email?, phone?, ... }] }
+ */
+router.post('/bulk', notificationController.sendBulkNotifications);
 
-// Send SMS notification
-router.post('/sms', async (req, res) => {
-  try {
-    const { to, message } = req.body;
-    const result = await notificationController.sendSMS({ to, message });
-    res.json({ success: true, result });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+/**
+ * Get notification by ID
+ * GET /notifications/:id
+ */
+router.get('/:id', notificationController.getNotification);
 
-// Send push notification
-router.post('/push', async (req, res) => {
-  try {
-    const { userId, title, body, data } = req.body;
-    const result = await notificationController.sendPushNotification({ userId, title, body, data });
-    res.json({ success: true, result });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+/**
+ * Mark notification as read
+ * PUT /notifications/:id/read
+ */
+router.put('/:id/read', notificationController.markAsRead);
 
-// Get notification history
-router.get('/history/:userId', async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { page = 1, limit = 20 } = req.query;
-    const result = await notificationController.getNotificationHistory(userId, { page, limit });
-    res.json({ success: true, result });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+/**
+ * Get all notifications for a user
+ * GET /notifications/user/:userId
+ * Query params: limit, skip
+ */
+router.get('/user/:userId', notificationController.getUserNotifications);
+
+/**
+ * Get unread notifications for a user
+ * GET /notifications/user/:userId/unread
+ */
+router.get('/user/:userId/unread', notificationController.getUnreadNotifications);
+
+/**
+ * Get notification statistics for a user
+ * GET /notifications/user/:userId/stats
+ */
+router.get('/user/:userId/stats', notificationController.getUserStats);
 
 module.exports = router;

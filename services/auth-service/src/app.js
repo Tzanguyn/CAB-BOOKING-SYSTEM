@@ -42,7 +42,7 @@ app.get('/', (req, res) => {
 });
 
 // --- Routes ---
-app.use('/auth', authRoutes);
+ app.use('/auth', authRoutes);
 
 // --- Error Handling Middleware ---
 app.use((err, req, res, next) => {

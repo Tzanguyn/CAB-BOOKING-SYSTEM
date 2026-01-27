@@ -20,7 +20,9 @@ RUN cd /shared && npm install --only=production && npm cache clean --force
 COPY services/auth-service/package*.json ./
 
 # Install dependencies
-RUN npm install --only=production && npm cache clean --force
+
+RUN npm install --omit=dev && npm cache clean --force
+
 
 # Copy source code
 COPY services/auth-service/src/ ./src/

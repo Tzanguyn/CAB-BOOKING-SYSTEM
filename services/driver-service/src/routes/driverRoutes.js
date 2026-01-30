@@ -2,35 +2,25 @@ const express = require('express');
 const DriverController = require('../controllers/driverController');
 
 const router = express.Router();
-const driverController = new DriverController();
+const controller = new DriverController();
 
-// init
-driverController.initialize().catch(console.error);
-
-// Health
+/* HEALTH */
 router.get('/health', (req, res) => {
   res.json({ service: 'driver-service', status: 'healthy' });
 });
 
-// ✅ CHỈ GỌI controller, KHÔNG xử lý logic ở router
-router.post('/profile', (req, res) =>
-  driverController.createDriverProfile(req, res)
-);
+/* PROFILE */
+router.post('/profile', controller.createDriverProfile);
+router.get('/profile/:driverId', controller.getDriverProfile);
 
-router.get('/profile/:driverId', (req, res) =>
-  driverController.getDriverProfile(req, res)
-);
+/* STATUS */
+router.put('/status/:driverId', controller.updateDriverStatus);
+router.get('/status/:driverId', controller.getDriverStatus);
 
-router.put('/profile/:driverId', (req, res) =>
-  driverController.updateDriverProfile(req, res)
-);
+/* LOCATION */
+router.put('/location/:driverId', controller.updateDriverLocation);
 
-router.put('/status/:driverId', (req, res) =>
-  driverController.updateDriverStatus(req, res)
-);
-
-router.get('/status/:driverId', (req, res) =>
-  driverController.getDriverStatus(req, res)
-);
+/* NEARBY */
+router.get('/nearby', controller.findNearbyDrivers);
 
 module.exports = router;

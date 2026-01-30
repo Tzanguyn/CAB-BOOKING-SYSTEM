@@ -36,6 +36,7 @@ const RIDE_EVENTS = {
 const rideStateMachine = createMachine({
   id: 'ride',
   initial: RIDE_STATES.REQUESTED,
+  predictableActionArguments: true,  // THÊM DÒNG NÀY
   context: {
     rideId: null,
     userId: null,

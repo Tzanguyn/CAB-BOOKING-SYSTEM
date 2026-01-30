@@ -15,7 +15,7 @@ info:
     name: MIT
 
 servers:
-  - url: http://localhost:3006/api/reviews
+  - url: http://localhost:3009/api/reviews
     description: Development server
   - url: https://api.cab-booking.com/reviews
     description: Production server

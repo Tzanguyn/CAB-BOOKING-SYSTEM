@@ -430,17 +430,24 @@ node test-rabbitmq.js
 
 # API Testing với curl
 # Register user
-curl -X POST http://localhost:3000/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "test@example.com",
-    "phone": "+1234567890",
-    "password": "TestPass123!",
-    "firstName": "Test",
-    "lastName": "User",
-    "role": "customer"
-  }'
-
+postman request POST 'http://localhost:3004/auth/register' \
+  --header 'Content-Type: application/json' \
+  --body '{
+  "email": "driver01@gmail.com",
+  "phone": "0909123456",
+  "password": "TestPass123!",
+  "firstName": "Nguyen",
+  "lastName": "Driver",
+  "role": "driver"
+}'
+#Login
+postman request POST 'http://localhost:3004/auth/login' \
+  --header 'Content-Type: application/json' \
+  --body '{"email": "driver01@gmail.com", "password": "TestPass123!"}'
+#profile
+postman request 'http://localhost:3004/auth/profile' \
+  --header 'Authorization: Bearer YOUR_JWT_TOKEN \
+  --body ''
 # Create booking
 curl -X POST http://localhost:3000/bookings \
   -H "Content-Type: application/json" \

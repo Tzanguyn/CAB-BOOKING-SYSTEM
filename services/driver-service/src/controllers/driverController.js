@@ -2,103 +2,56 @@ const DriverService = require('../services/driverService');
 
 class DriverController {
   constructor() {
-    this.driverService = new DriverService();
+    this.service = new DriverService();
   }
 
-  // Initialize controller
-  async initialize() {
-    await this.driverService.initialize();
-  }
-
-  // Driver Profile Management
-  async createDriverProfile(req, res) {
+  createDriverProfile = async (req, res) => {
     try {
-      const result = await this.driverService.createDriverProfile(req.body);
-      res.json({ success: true, result });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
+      const driver = await this.service.createDriverProfile(req.body);
+      res.json({ success: true, data: driver });
+    } catch (err) {
+      res.status(400).json({ success: false, error: err.message });
     }
-  }
+  };
 
-  async getDriverProfile(req, res) {
-    try {
-      const { driverId } = req.params;
-      const result = await this.driverService.getDriverProfile(driverId);
-      res.json({ success: true, result });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
-    }
-  }
+  getDriverProfile = async (req, res) => {
+    const driver = await this.service.getDriverProfile(req.params.driverId);
+    if (!driver) return res.status(404).json({ error: 'Not found' });
+    res.json(driver);
+  };
 
-  async updateDriverStatus(req, res) {
-    try {
-      const { driverId } = req.params;
-      const { status } = req.body;
-      const result = await this.driverService.updateDriverStatus(driverId, status);
-      res.json({ success: true, result });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
-    }
-  }
+  updateDriverStatus = async (req, res) => {
+    const result = await this.service.updateDriverStatus(
+      req.params.driverId,
+      req.body.status
+    );
+    res.json(result);
+  };
 
-  // Location Tracking
-  async updateDriverLocation(req, res) {
-    try {
-      const { driverId } = req.params;
-      const { lat, lng } = req.body;
-      const result = await this.driverService.updateDriverLocation(driverId, { lat, lng });
-      res.json({ success: true, result });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
-    }
-  }
+  getDriverStatus = async (req, res) => {
+    const result = await this.service.getDriverStatus(req.params.driverId);
+    res.json(result);
+  };
 
-  async findNearbyDrivers(req, res) {
-    try {
-      const { lat, lng, radius = 5 } = req.query;
-      const result = await this.driverService.findNearbyDrivers(parseFloat(lat), parseFloat(lng), parseFloat(radius));
-      res.json({ success: true, result });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
-    }
-  }
+  updateDriverLocation = async (req, res) => {
+    const { lat, lng } = req.body;
+    const result = await this.service.updateDriverLocation(
+      req.params.driverId,
+      lat,
+      lng
+    );
+    res.json(result);
+  };
 
-  // Driver Status
-  async updateDriverStatus(req, res) {
-    try {
-      const { driverId } = req.params;
-      const { status } = req.body;
-      const result = await this.driverService.updateDriverStatus(driverId, status);
-      res.json({ success: true, result });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
-    }
-  }
-
-  async getDriverStatus(req, res) {
-    try {
-      const { driverId } = req.params;
-      const result = await this.driverService.getDriverStatus(driverId);
-      res.json({ success: true, result });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
-    }
-  }
-
-  // Earnings
-  async getDriverEarnings(req, res) {
-    try {
-      const { driverId } = req.params;
-      const result = await this.driverService.getDriverEarnings(driverId);
-      res.json({ success: true, result });
-    } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
-    }
-  }
+  findNearbyDrivers = async (req, res) => {
+    const { lat, lng, radius } = req.query;
+    const drivers = await this.service.findNearbyDrivers(
+      Number(lat),
+      Number(lng),
+      Number(radius || 5)
+    );
+    res.json({ drivers });
+  };
 }
 
 module.exports = DriverController;

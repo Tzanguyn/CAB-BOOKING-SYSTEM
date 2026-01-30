@@ -2,28 +2,35 @@ const express = require('express');
 const cors = require('cors');
 const amqp = require('amqplib');
 
-// Local event constants (kept in sync with shared/constants/events.js)
+// =====================
+// EVENT CONSTANTS
+// =====================
 const EVENT_TYPES = {
   BOOKING_CREATED: 'BookingCreated',
   BOOKING_CANCELLED: 'BookingCancelled',
-  RIDE_CREATED: 'RideCreated'
+  RIDE_CREATED: 'RideCreated',
+  RIDE_CANCELLED: 'RideCancelled'
 };
 
 const ROUTING_KEYS = {
   BOOKING_CREATED: 'booking.created',
   BOOKING_CANCELLED: 'booking.cancelled',
-  RIDE_CREATED: 'ride.created'
+  RIDE_CREATED: 'ride.created',
+  RIDE_CANCELLED: 'ride.cancelled'
 };
 
 const EXCHANGES = {
-  RIDE_EVENTS: 'ride-events',
-  BOOKING_EVENTS: 'booking-events'
+  BOOKING_EVENTS: 'booking-events',
+  RIDE_EVENTS: 'ride-events'
 };
 
 const QUEUES = {
   BOOKING_SERVICE: 'booking-service-queue'
 };
 
+// =====================
+// RABBITMQ CLIENT
+// =====================
 class RabbitMQClient {
   constructor(url) {
     this.url = url;
@@ -43,82 +50,120 @@ class RabbitMQClient {
 
   async publishEvent(exchange, routingKey, message) {
     await this.channel.assertExchange(exchange, 'topic', { durable: true });
-    this.channel.publish(exchange, routingKey, Buffer.from(JSON.stringify(message)));
+    this.channel.publish(
+      exchange,
+      routingKey,
+      Buffer.from(JSON.stringify(message)),
+      { persistent: true }
+    );
   }
 
-  async subscribeToQueue(queueName, callback) {
-    await this.channel.assertQueue(queueName, { durable: true });
-    this.channel.consume(queueName, async (msg) => {
+  async subscribeToQueue(queueName, exchange, routingKeys, callback) {
+    await this.channel.assertExchange(exchange, 'topic', { durable: true });
+    const q = await this.channel.assertQueue(queueName, { durable: true });
+
+    for (const key of routingKeys) {
+      await this.channel.bindQueue(q.queue, exchange, key);
+    }
+
+    this.channel.consume(q.queue, async (msg) => {
       if (!msg) return;
       try {
         const event = JSON.parse(msg.content.toString());
         await callback(event);
         this.channel.ack(msg);
       } catch (err) {
-        console.error('Error processing message:', err);
+        console.error('❌ Error processing message:', err);
         this.channel.nack(msg, false, false);
       }
     });
   }
 }
 
+// =====================
+// IMPORTS
+// =====================
+const bookingRoutes = require('./routes/bookingRoutes');
+require('./models/Booking');
+const errorHandler = require('./middlewares/errorHandler');
+
+// =====================
+// APP SETUP
+// =====================
 const app = express();
 
-// Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Health check
-app.get('/api/bookings/health', (req, res) => {
+// =====================
+// HEALTH CHECK
+// =====================
+app.get('/health', (req, res) => {
   res.json({
     service: 'booking-service',
     status: 'healthy',
     timestamp: new Date().toISOString()
-  });
-});
+  })
+})
 
-// Initialize RabbitMQ client
-let rabbitMQClient;
+// =====================
+// RABBITMQ INIT
+// =====================
+let rabbitMQClient = null;
 
 async function initializeRabbitMQ() {
   try {
-    const rabbitUrl = process.env.RABBITMQ_URL || 'amqp://guest:guest@rabbitmq:5672/';
+    const rabbitUrl =
+      process.env.RABBITMQ_URL || 'amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking';
+
     rabbitMQClient = new RabbitMQClient(rabbitUrl);
     await rabbitMQClient.connect();
 
-    // Subscribe to booking events
-    await rabbitMQClient.subscribeToQueue(QUEUES.BOOKING_SERVICE, handleBookingEvent);
+    await rabbitMQClient.subscribeToQueue(
+      QUEUES.BOOKING_SERVICE,
+      EXCHANGES.BOOKING_EVENTS,
+      [
+        ROUTING_KEYS.BOOKING_CREATED,
+        ROUTING_KEYS.BOOKING_CANCELLED
+      ],
+      handleBookingEvent
+    );
 
-    console.log('Booking Service connected to RabbitMQ');
+    console.log('✅ Booking Service connected to RabbitMQ');
   } catch (error) {
-    console.error('Failed to initialize RabbitMQ (continuing without async events):', error.message);
+    console.error(
+      '⚠️ RabbitMQ not available, running without async events:',
+      error.message
+    );
     rabbitMQClient = null;
   }
 }
 
-// Handle incoming booking events
+// =====================
+// EVENT HANDLERS
+// =====================
 async function handleBookingEvent(event) {
-  console.log('Received booking event:', event);
+  console.log('📩 Received booking event:', event);
 
   switch (event.type) {
     case EVENT_TYPES.BOOKING_CREATED:
       await handleBookingCreated(event);
       break;
+
     case EVENT_TYPES.BOOKING_CANCELLED:
       await handleBookingCancelled(event);
       break;
+
     default:
-      console.log('Unknown booking event type:', event.type);
+      console.log('⚠️ Unknown event type:', event.type);
   }
 }
 
-// Event handlers
 async function handleBookingCreated(event) {
   try {
-    // Process booking creation
-    console.log('Processing booking creation:', event.bookingId);
+    console.log('🚕 Processing booking created:', event.bookingId);
 
-    // Publish ride created event
     if (rabbitMQClient) {
       await rabbitMQClient.publishEvent(
         EXCHANGES.RIDE_EVENTS,
@@ -135,148 +180,72 @@ async function handleBookingCreated(event) {
       );
     }
 
-    console.log('Published ride created event for booking:', event.bookingId);
-  } catch (error) {
-    console.error('Error handling booking created:', error);
+    console.log('✅ Ride created event published');
+  } catch (err) {
+    console.error('❌ handleBookingCreated error:', err);
   }
 }
 
 async function handleBookingCancelled(event) {
   try {
-    // Process booking cancellation
-    console.log('Processing booking cancellation:', event.bookingId);
+    console.log('❌ Processing booking cancelled:', event.bookingId);
 
-    // Publish ride cancelled event
-    await rabbitMQClient.publishEvent(
-      EXCHANGES.RIDE_EVENTS,
-      ROUTING_KEYS.RIDE_CANCELLED,
-      {
-        type: EVENT_TYPES.RIDE_CANCELLED,
-        bookingId: event.bookingId,
-        rideId: event.rideId,
-        reason: event.reason
-      }
-    );
+    if (rabbitMQClient) {
+      await rabbitMQClient.publishEvent(
+        EXCHANGES.RIDE_EVENTS,
+        ROUTING_KEYS.RIDE_CANCELLED,
+        {
+          type: EVENT_TYPES.RIDE_CANCELLED,
+          bookingId: event.bookingId,
+          rideId: event.rideId,
+          reason: event.reason,
+          timestamp: new Date().toISOString()
+        }
+      );
+    }
 
-    console.log('Published ride cancelled event for booking:', event.bookingId);
-  } catch (error) {
-    console.error('Error handling booking cancelled:', error);
+    console.log('✅ Ride cancelled event published');
+  } catch (err) {
+    console.error('❌ handleBookingCancelled error:', err);
   }
 }
 
-// API Routes
+// =====================
+// ROUTES
+// =====================
 app.get('/', (req, res) => {
   res.json({
     message: 'Booking Service is running...',
-    timestamp: new Date(),
-    rabbitMQ: rabbitMQClient ? 'connected' : 'disconnected'
+    timestamp: new Date().toISOString()
   });
 });
 
-// Create booking endpoint
-app.post('/bookings', async (req, res) => {
-  try {
-    const { passengerId, pickup, destination, vehicleType } = req.body;
+app.use('/bookings', bookingRoutes);
 
-    // Validate request
-    if (!passengerId || !pickup || !destination) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    // Create booking (in real implementation, save to database)
-    const bookingId = `booking_${Date.now()}`;
-    const booking = {
-      bookingId,
-      passengerId,
-      pickup,
-      destination,
-      vehicleType: vehicleType || 'standard',
-      status: 'created',
-      createdAt: new Date().toISOString()
-    };
-
-    // Publish booking created event
-    await rabbitMQClient.publishEvent(
-      EXCHANGES.BOOKING_EVENTS,
-      ROUTING_KEYS.BOOKING_CREATED,
-      {
-        type: EVENT_TYPES.BOOKING_CREATED,
-        ...booking
-      }
-    );
-
-    res.status(201).json({
-      message: 'Booking created successfully',
-      booking
-    });
-
-  } catch (error) {
-    console.error('Error creating booking:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
+// =====================
+// 404 + ERROR HANDLER
+// =====================
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'Route not found'
+  });
 });
 
-// Cancel booking endpoint
-app.post('/bookings/:bookingId/cancel', async (req, res) => {
-  try {
-    const { bookingId } = req.params;
-    const { reason } = req.body;
+app.use(errorHandler);
 
-    // Publish booking cancelled event
-    await rabbitMQClient.publishEvent(
-      EXCHANGES.BOOKING_EVENTS,
-      ROUTING_KEYS.BOOKING_CANCELLED,
-      {
-        type: EVENT_TYPES.BOOKING_CANCELLED,
-        bookingId,
-        reason: reason || 'cancelled_by_user'
-      }
-    );
-
-    res.json({
-      message: 'Booking cancellation requested',
-      bookingId
-    });
-
-  } catch (error) {
-    console.error('Error cancelling booking:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('Received SIGTERM, shutting down gracefully...');
-  if (rabbitMQClient) {
-    await rabbitMQClient.disconnect();
-  }
-  process.exit(0);
-});
-
+// =====================
+// GRACEFUL SHUTDOWN
+// =====================
 process.on('SIGINT', async () => {
-  console.log('Received SIGINT, shutting down gracefully...');
-  if (rabbitMQClient) {
-    await rabbitMQClient.disconnect();
-  }
+  console.log('🛑 Shutting down Booking Service...');
+  if (rabbitMQClient) await rabbitMQClient.disconnect();
   process.exit(0);
 });
 
-// Initialize and start server
-const PORT = process.env.PORT || 3003;
-
-async function startServer() {
-  try {
-    await initializeRabbitMQ();
-
-    app.listen(PORT, () => {
-      console.log(`Booking Service running on port ${PORT}`);
-    });
-  } catch (error) {
-    console.error('Failed to start Booking Service:', error);
-    process.exit(1);
-  }
-}
-
-startServer();
+// =====================
+// INIT MQ
+// =====================
+initializeRabbitMQ();
 
 module.exports = app;

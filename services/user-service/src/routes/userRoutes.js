@@ -10,7 +10,18 @@ const UserController = require('../controllers/userController');
 // } = require('../../../auth-service/src/middlewares/authMiddleware');
 
 // Simple middleware implementations
-const authenticateToken = (req, res, next) => next(); // Skip auth for now
+// Test middleware: Get userId from header or query param for testing
+const authenticateToken = (req, res, next) => {
+  // For testing: Get userId from X-User-Id header or userId query param
+  const userId = req.headers['x-user-id'] || req.query.userId;
+  
+  if (userId) {
+    req.user = { userId };
+  }
+  
+  next();
+};
+
 const requireUser = (req, res, next) => next(); // Skip user check for now
 const rateLimit = () => (req, res, next) => next(); // Skip rate limiting for now
 const securityHeaders = (req, res, next) => next(); // Skip security headers for now

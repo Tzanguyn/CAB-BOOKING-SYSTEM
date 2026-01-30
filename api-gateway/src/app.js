@@ -46,8 +46,7 @@ const proxy = (target) =>
             })
         }
     })
-
-// Route to upstream services (container DNS names)
+    // Route to upstream services (container DNS names)
 app.use(
     '/auth',
     proxy(process.env.AUTH_SERVICE_URL || 'http://auth-service:3004')

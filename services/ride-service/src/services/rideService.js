@@ -3,8 +3,19 @@ const { RideStateMachineService, RIDE_STATES, RIDE_EVENTS } = require('../state-
 // Temporarily disable shared imports
 // const { RabbitMQClient, EXCHANGES, EVENT_TYPES } = require('../../../shared');
 const RabbitMQClient = null;
-const EXCHANGES = {};
-const EVENT_TYPES = {};
+let EXCHANGES = {
+  RIDE_EVENTS: 'ride-events',
+  DRIVER_EVENTS: 'driver-events',
+  PAYMENT_EVENTS: 'payment-events',
+  BOOKING_EVENTS: 'booking-events'
+};
+
+let EVENT_TYPES = {
+  RIDE_CREATED: 'RideCreated',
+  RIDE_ASSIGNED: 'RideAssigned',
+  RIDE_COMPLETED: 'RideCompleted',
+  RIDE_CANCELLED: 'RideCancelled'
+};
 
 class RideService {
   constructor() {
@@ -12,20 +23,24 @@ class RideService {
     this.activeRides = new Map(); // rideId -> stateMachineService
   }
 
-  // Initialize RabbitMQ
-  async initializeRabbitMQ() {
+  // Initialize RabbitMQ - thêm fallback
+  async initializeRabbitMQ(client) {
     try {
-      this.rabbitMQClient = new RabbitMQClient();
-      await this.rabbitMQClient.connect();
-
-      // Setup event listeners
-      await this.setupEventListeners();
-
-      console.log('✅ Ride Service: RabbitMQ connected');
+      this.rabbitMQClient = client;
+      
+      if (client) {
+        // Setup event listeners
+        await this.setupEventListeners();
+        console.log('✅ Ride Service: RabbitMQ connected');
+      } else {
+        console.log('⚠️ Ride Service: Running without RabbitMQ');
+      }
     } catch (error) {
-      console.error('❌ Ride Service: RabbitMQ connection failed:', error);
+      console.error('❌ Ride Service: RabbitMQ setup failed:', error);
+      console.log('⚠️ Ride Service: Running in degraded mode');
     }
   }
+
 
   // Setup event listeners
   async setupEventListeners() {
@@ -573,6 +588,265 @@ class RideService {
 
     if (this.rabbitMQClient) {
       await this.rabbitMQClient.disconnect();
+    }
+  }
+
+  // Get ride history with pagination
+  async getRideHistory(userId, options = {}) {
+    try {
+      const { skip = 0, limit = 20, startDate, endDate } = options;
+
+      const query = { userId };
+
+      if (startDate || endDate) {
+        query.createdAt = {};
+        if (startDate) query.createdAt.$gte = new Date(startDate);
+        if (endDate) query.createdAt.$lte = new Date(endDate);
+      }
+
+      const [rides, total] = await Promise.all([
+        Ride.find(query)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        Ride.countDocuments(query)
+      ]);
+
+      return { rides, total };
+    } catch (error) {
+      console.error('Get ride history error:', error);
+      throw error;
+    }
+  }
+
+  // Get assigned rides for driver
+  async getAssignedRidesForDriver(driverId, status = null) {
+    try {
+      const query = { driverId };
+
+      if (status) {
+        query.status = status;
+      } else {
+        // Default to active rides
+        query.status = {
+          $in: [
+            RIDE_STATES.DRIVER_ASSIGNED,
+            RIDE_STATES.DRIVER_ARRIVED,
+            RIDE_STATES.STARTED
+          ]
+        };
+      }
+
+      const rides = await Ride.find(query)
+        .sort({ 'timing.driverAssignedAt': -1 })
+        .lean();
+
+      return rides;
+    } catch (error) {
+      console.error('Get assigned rides error:', error);
+      throw error;
+    }
+  }
+
+  // Reject ride (driver rejects assigned ride)
+  async rejectRide(rideId, driverId, reason) {
+    try {
+      const ride = await Ride.findOne({ rideId });
+      if (!ride) {
+        throw new Error('Ride not found');
+      }
+
+      // Add to search metadata
+      ride.searchMetadata.driverCandidates.push({
+        driverId,
+        rejectedAt: new Date(),
+        rejectionReason: reason
+      });
+
+      await ride.save();
+
+      // Publish rejection event
+      if (this.rabbitMQClient) {
+        await this.rabbitMQClient.publishEvent(
+          EXCHANGES.RIDE_EVENTS,
+          'ride.driver_rejected',
+          {
+            type: 'RideDriverRejected',
+            rideId,
+            driverId,
+            reason,
+            timestamp: new Date().toISOString()
+          }
+        );
+      }
+
+      return { rideId, driverId, rejected: true };
+    } catch (error) {
+      console.error('Reject ride error:', error);
+      throw error;
+    }
+  }
+
+  // Get ride statistics
+  async getRideStats(startDate, endDate) {
+    try {
+      const stats = await Ride.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: startDate, $lte: endDate }
+          }
+        },
+        {
+          $facet: {
+            overall: [
+              {
+                $group: {
+                  _id: null,
+                  totalRides: { $sum: 1 },
+                  completedRides: {
+                    $sum: { $cond: [{ $eq: ['$status', RIDE_STATES.COMPLETED] }, 1, 0] }
+                  },
+                  cancelledRides: {
+                    $sum: { $cond: [{ $eq: ['$status', RIDE_STATES.CANCELLED] }, 1, 0] }
+                  },
+                  totalRevenue: {
+                    $sum: { $cond: [{ $eq: ['$status', RIDE_STATES.COMPLETED] }, '$pricing.finalFare', 0] }
+                  },
+                  averageFare: { $avg: '$pricing.finalFare' },
+                  averageDistance: { $avg: '$route.actualDistance' },
+                  averageDuration: { $avg: '$route.actualDuration' }
+                }
+              }
+            ],
+            byHour: [
+              {
+                $group: {
+                  _id: { $hour: '$createdAt' },
+                  count: { $sum: 1 }
+                }
+              },
+              { $sort: { '_id': 1 } }
+            ],
+            byStatus: [
+              {
+                $group: {
+                  _id: '$status',
+                  count: { $sum: 1 }
+                }
+              }
+            ],
+            byVehicleType: [
+              {
+                $group: {
+                  _id: '$pricing.vehicleType',
+                  count: { $sum: 1 },
+                  avgFare: { $avg: '$pricing.finalFare' }
+                }
+              }
+            ]
+          }
+        }
+      ]);
+
+      return stats[0];
+    } catch (error) {
+      console.error('Get ride stats error:', error);
+      throw error;
+    }
+  }
+
+  // Search rides with filters
+  async searchRides(filters = {}) {
+    try {
+      const {
+        query,
+        status,
+        startDate,
+        endDate,
+        skip = 0,
+        limit = 50
+      } = filters;
+
+      const searchQuery = {};
+
+      if (query) {
+        searchQuery.$or = [
+          { rideId: { $regex: query, $options: 'i' } },
+          { 'userDetails.firstName': { $regex: query, $options: 'i' } },
+          { 'userDetails.lastName': { $regex: query, $options: 'i' } },
+          { 'driverDetails.firstName': { $regex: query, $options: 'i' } },
+          { 'driverDetails.lastName': { $regex: query, $options: 'i' } },
+          { 'pickup.address': { $regex: query, $options: 'i' } },
+          { 'destination.address': { $regex: query, $options: 'i' } }
+        ];
+      }
+
+      if (status) {
+        searchQuery.status = status;
+      }
+
+      if (startDate || endDate) {
+        searchQuery.createdAt = {};
+        if (startDate) searchQuery.createdAt.$gte = new Date(startDate);
+        if (endDate) searchQuery.createdAt.$lte = new Date(endDate);
+      }
+
+      const [rides, total] = await Promise.all([
+        Ride.find(searchQuery)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        Ride.countDocuments(searchQuery)
+      ]);
+
+      return { rides, total };
+    } catch (error) {
+      console.error('Search rides error:', error);
+      throw error;
+    }
+  }
+
+  // Emergency handling
+  async handleEmergency(rideId, emergencyData) {
+    try {
+      const ride = await Ride.findOne({ rideId });
+      if (!ride) {
+        throw new Error('Ride not found');
+      }
+
+      ride.emergency = {
+        isEmergency: true,
+        emergencyType: emergencyData.type || 'unspecified',
+        emergencyNotes: emergencyData.notes,
+        emergencyContacted: false,
+        emergencyContactedAt: null
+      };
+
+      await ride.save();
+
+      // Publish emergency event
+      if (this.rabbitMQClient) {
+        await this.rabbitMQClient.publishEvent(
+          EXCHANGES.RIDE_EVENTS,
+          'ride.emergency',
+          {
+            type: 'RideEmergency',
+            rideId,
+            userId: ride.userId,
+            driverId: ride.driverId,
+            location: ride.currentLocation,
+            emergencyType: emergencyData.type,
+            timestamp: new Date().toISOString()
+          }
+        );
+      }
+
+      return { rideId, emergency: true };
+    } catch (error) {
+      console.error('Handle emergency error:', error);
+      throw error;
     }
   }
 }

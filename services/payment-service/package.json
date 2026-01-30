@@ -17,15 +17,17 @@
   "author": "CAB Booking Team",
   "license": "ISC",
   "dependencies": {
+    "@cab-booking/shared": "file:../../shared",
     "amqplib": "^0.10.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "helmet": "^8.1.0",
     "mongoose": "^8.0.0",
+    "morgan": "^1.10.1",
     "redis": "^5.10.0",
     "stripe": "^12.0.0",
-    "uuid": "^9.0.0",
-    "@cab-booking/shared": "file:../../shared"
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

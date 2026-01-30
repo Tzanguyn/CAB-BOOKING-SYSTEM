@@ -17,8 +17,6 @@ app.use(
     cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true })
 )
 app.use(compression())
-app.use(express.json({ limit: '10mb' }))
-app.use(express.urlencoded({ extended: true }))
 app.use(responseTime())
 app.use(morgan('combined'))
 
@@ -31,6 +29,31 @@ app.get('/health', (req, res) => {
     })
 })
 
+const proxy = (target, pathRewrite = {}) =>
+	createProxyMiddleware({
+		target,
+		changeOrigin: true,
+		pathRewrite,
+		onProxyReq: (proxyReq, req, res) => {
+			console.log(`→ Proxying ${req.method} ${req.originalUrl} to ${target}${proxyReq.path}`)
+		},
+		onProxyRes: (proxyRes, req, res) => {
+			console.log(`← Response from ${target}: ${proxyRes.statusCode}`)
+		},
+		onError: (err, req, res) => {
+			console.error('❌ Proxy error:', err.message)
+			if (!res.headersSent) {
+				res.status(502).json({
+					error: 'Bad gateway',
+					target,
+					message: err.message
+				})
+			}
+		}
+	})
+
+// Route to upstream services (container DNS names)
+=======
 const proxy = (target) =>
     createProxyMiddleware({
         target,
@@ -47,6 +70,7 @@ const proxy = (target) =>
         }
     })
     // Route to upstream services (container DNS names)
+
 app.use(
     '/auth',
     proxy(process.env.AUTH_SERVICE_URL || 'http://auth-service:3004')

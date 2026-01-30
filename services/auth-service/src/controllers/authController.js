@@ -276,6 +276,56 @@ class AuthController {
     }
   };
 
+  // Validate token (for API Gateway)
+  validateToken = async (req, res) => {
+    try {
+      const { token } = req.body;
+
+      if (!token) {
+        return res.status(400).json({
+          error: 'Token is required',
+          code: 'MISSING_TOKEN'
+        });
+      }
+
+      // Check if token is blacklisted
+      const isBlacklisted = await this.authService.tokenUtils.isTokenBlacklisted(token);
+      if (isBlacklisted) {
+        return res.status(401).json({
+          error: 'Token has been revoked',
+          code: 'TOKEN_REVOKED'
+        });
+      }
+
+      // Verify JWT token
+      const decoded = this.authService.verifyToken(token);
+
+      // Zero Trust: Additional device verification (optional for gateway validation)
+      const currentFingerprint = this.getDeviceFingerprint(req);
+      if (decoded.deviceFingerprint && decoded.deviceFingerprint !== currentFingerprint) {
+        console.warn(`Zero Trust Alert: Token validation from different device for user ${decoded.userId}`);
+        // Still allow validation but log suspicious activity
+      }
+
+      res.json({
+        valid: true,
+        user: {
+          userId: decoded.userId,
+          email: decoded.email,
+          role: decoded.role,
+          deviceFingerprint: decoded.deviceFingerprint
+        }
+      });
+
+    } catch (error) {
+      console.error('Token validation error:', error);
+      res.status(401).json({
+        error: 'Invalid or expired token',
+        code: 'INVALID_TOKEN'
+      });
+    }
+  };
+
   // Helper: Get device fingerprint
   getDeviceFingerprint(req) {
     // Simple fingerprint based on user agent and IP

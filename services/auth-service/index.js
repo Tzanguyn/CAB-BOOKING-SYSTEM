@@ -2,7 +2,7 @@ require('dotenv').config(); // Load biến môi trường đầu tiên
 const app = require('./src/app'); // Lấy cái App đã cấu hình ở trên
 const { connectDB } = require('./src/config/database');
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3004;
 
 // Hàm Start Server
 const startServer = async () => {

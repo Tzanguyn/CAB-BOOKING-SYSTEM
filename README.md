@@ -95,9 +95,7 @@ cab-booking-system/
 │   ├── constants/                   # Event Constants
 │   └── dto/                         # Data Transfer Objects
 │
-├── docker-compose.yml               # Main Orchestration
-├── docker-compose.dev.yml           # Development Setup
-├── docker-compose.full.yml          # Full Production Setup
+├── docker-compose.yml               # Main Orchestration        # Full Production Setup
 ├── test-rabbitmq.js                 # RabbitMQ Testing
 ├── config-example.txt               # Environment Template
 └── README.md                        # This file

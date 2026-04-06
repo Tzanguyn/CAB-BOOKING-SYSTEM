@@ -1,401 +1,307 @@
 const mongoose = require('mongoose');
-// Temporarily disable shared imports
-// const { schemaHelpers } = require('../../../shared');
 
-// Simple schema helpers implementation
-const schemaHelpers = {
-  // No-op plugin stub (keeps schema.plugin(...) from crashing)
-  auditPlugin: (schema) => schema,
-  validations: {
-    rating: {
-      validator: function (value) {
-        return Number.isInteger(value) && value >= 1 && value <= 5;
+const { Schema } = mongoose;
+
+const reviewSchema = new Schema(
+  {
+    // ─── Các trường cơ bản (từ code cũ của bạn) ──────────────────────────────
+    reviewCode: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
+
+    subject: {
+      type: {
+        type: String,
+        enum: ['driver', 'ride', 'passenger'],
+        required: true,
+        index: true,
       },
-      message: 'Rating must be an integer between 1 and 5'
-    }
-  },
-  mongooseFields: {
+      id: {
+        type: Schema.Types.ObjectId,
+        required: true,
+        index: true,
+      },
+    },
+
+    reviewer: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true,
+    },
+
+    reviewerType: {
+      type: String,
+      enum: ['passenger', 'driver'],
+      required: true,
+    },
+
+    ride: {
+      type: Schema.Types.ObjectId,
+      ref: 'Ride',
+      index: true,
+      sparse: true,
+    },
+
     rating: {
       type: Number,
       required: true,
-      min: 1,
-      max: 5
-    }
-  },
-  commonFields: {
-    createdAt: { type: Date, default: Date.now },
-    updatedAt: { type: Date, default: Date.now },
-    isActive: { type: Boolean, default: true }
-  },
-  index: (field) => ({ index: true }),
-  required: (field) => ({ required: true }),
-  default: (value) => ({ default: value }),
-  enum: (values) => ({ enum: values }),
-  min: (value) => ({ min: value }),
-  max: (value) => ({ max: value }),
-  minlength: (value) => ({ minlength: value }),
-  maxlength: (value) => ({ maxlength: value })
-};
-
-const reviewSchema = new mongoose.Schema({
-  reviewId: {
-    type: String,
-    required: true,
-    unique: true,
-    index: true
-  },
-
-  // Review subject (what is being reviewed)
-  subjectType: {
-    type: String,
-    required: true,
-    enum: ['ride', 'driver', 'passenger'],
-    index: true
-  },
-
-  subjectId: {
-    type: String,
-    required: true,
-    index: true
-  },
-
-  // Review author
-  reviewerType: {
-    type: String,
-    required: true,
-    enum: ['passenger', 'driver']
-  },
-
-  reviewerId: {
-    type: String,
-    required: true,
-    index: true
-  },
-
-  // Associated entities
-  rideId: {
-    type: String,
-    index: true
-  },
-
-  driverId: {
-    type: String,
-    index: true
-  },
-
-  passengerId: {
-    type: String,
-    index: true
-  },
-
-  // Rating (1-5 stars)
-  rating: {
-    ...schemaHelpers.mongooseFields.rating,
-    validate: schemaHelpers.validations.rating
-  },
-
-  // Review content
-  title: {
-    type: String,
-    maxlength: 100,
-    trim: true
-  },
-
-  comment: {
-    type: String,
-    maxlength: 1000,
-    trim: true
-  },
-
-  // Detailed ratings (for rides)
-  detailedRatings: {
-    driverRating: {
-      type: Number,
-      min: 1,
-      max: 5
+      min: [1, 'Điểm tối thiểu là 1'],
+      max: [5, 'Điểm tối đa là 5'],
+      validate: {
+        validator: Number.isInteger,
+        message: 'Điểm phải là số nguyên',
+      },
     },
-    vehicleRating: {
-      type: Number,
-      min: 1,
-      max: 5
-    },
-    comfortRating: {
-      type: Number,
-      min: 1,
-      max: 5
-    },
-    safetyRating: {
-      type: Number,
-      min: 1,
-      max: 5
-    },
-    punctualityRating: {
-      type: Number,
-      min: 1,
-      max: 5
-    }
-  },
 
-  // Review tags/categories
-  tags: [{
-    type: String,
-    enum: [
-      'excellent_service', 'good_driver', 'clean_vehicle', 'safe_ride',
-      'on_time', 'professional', 'courteous', 'great_navigation',
-      'poor_service', 'rude_driver', 'dirty_vehicle', 'unsafe_driving',
-      'late_pickup', 'unprofessional', 'bad_navigation', 'other'
-    ]
-  }],
+    detailedRatings: {
+      driver: { type: Number, min: 1, max: 5 },
+      vehicle: { type: Number, min: 1, max: 5 },
+      comfort: { type: Number, min: 1, max: 5 },
+      safety: { type: Number, min: 1, max: 5 },
+      punctuality: { type: Number, min: 1, max: 5 },
+    },
 
-  // Media attachments (future enhancement)
-  attachments: [{
-    type: {
+    title: {
       type: String,
-      enum: ['image', 'video']
+      trim: true,
+      maxlength: [120, 'Tiêu đề tối đa 120 ký tự'],
     },
-    url: String,
-    thumbnail: String,
-    uploadedAt: {
-      type: Date,
-      default: Date.now
-    }
-  }],
 
-  // Review status
-  status: {
-    type: String,
-    enum: ['pending', 'approved', 'rejected', 'flagged'],
-    default: 'approved',
-    index: true
-  },
-
-  // Moderation
-  moderationReason: String,
-  moderatedBy: String,
-  moderatedAt: Date,
-
-  // Engagement metrics
-  helpfulVotes: {
-    type: Number,
-    default: 0,
-    min: 0
-  },
-
-  totalVotes: {
-    type: Number,
-    default: 0,
-    min: 0
-  },
-
-  // Response from reviewed party (driver/company response)
-  response: {
-    responderId: String,
-    responderType: {
+    comment: {
       type: String,
-      enum: ['driver', 'company']
+      trim: true,
+      maxlength: [1200, 'Nội dung tối đa 1200 ký tự'],
     },
-    responseText: {
+
+    tags: [
+      {
+        type: String,
+        enum: [
+          'excellent_service',
+          'good_driver',
+          'clean_vehicle',
+          'safe_ride',
+          'on_time',
+          'professional',
+          'courteous',
+          'poor_service',
+          'rude_driver',
+          'dirty_vehicle',
+          'unsafe_driving',
+          'late_pickup',
+          'unprofessional',
+          'other',
+        ],
+      },
+    ],
+
+    status: {
       type: String,
-      maxlength: 500
+      enum: ['pending', 'approved', 'rejected', 'flagged'],
+      default: 'approved',
+      index: true,
     },
-    respondedAt: {
-      type: Date,
-      default: Date.now
-    }
-  },
 
-  // Metadata
-  ipAddress: String,
-  userAgent: String,
-  location: {
-    country: String,
-    city: String
-  },
-
-  source: {
-    type: String,
-    enum: ['mobile_app', 'web_app', 'api', 'admin'],
-    default: 'mobile_app'
-  },
-
-  // Business rules
-  isAnonymous: {
-    type: Boolean,
-    default: false
-  },
-
-  isVerified: {
-    type: Boolean,
-    default: true // Verified reviews from completed rides
-  },
-
-  // Analytics
-  sentiment: {
-    type: String,
-    enum: ['positive', 'neutral', 'negative'],
-    default: 'neutral'
-  },
-
-  sentimentScore: {
-    type: Number,
-    min: -1,
-    max: 1,
-    default: 0
-  },
-
-  // Audit trail
-  editHistory: [{
-    editedAt: {
-      type: Date,
-      default: Date.now
+    moderation: {
+      reason: String,
+      by: { type: Schema.Types.ObjectId, ref: 'User' },
+      at: Date,
     },
-    editedBy: String,
-    changes: mongoose.Schema.Types.Mixed
-  }]
-}, {
-  timestamps: true,
-  collection: 'reviews'
-});
 
-// Apply audit plugin (disabled for now)
-// reviewSchema.plugin(schemaHelpers.auditPlugin);
+    response: {
+      text: { type: String, maxlength: 800, trim: true },
+      responder: { type: Schema.Types.ObjectId, ref: 'User' },
+      responderType: { type: String, enum: ['driver', 'company'] },
+      respondedAt: Date,
+    },
 
-// Indexes for performance
-reviewSchema.index({ subjectType: 1, subjectId: 1, createdAt: -1 });
-reviewSchema.index({ reviewerId: 1, createdAt: -1 });
-reviewSchema.index({ rideId: 1 });
-reviewSchema.index({ driverId: 1, createdAt: -1 });
-reviewSchema.index({ passengerId: 1, createdAt: -1 });
+    helpful: {
+      count: { type: Number, default: 0, min: 0 },
+    },
+
+    source: {
+      type: String,
+      enum: ['app', 'web', 'api', 'admin'],
+      default: 'app',
+    },
+
+    ip: String,
+    userAgent: String,
+
+    isAnonymous: { type: Boolean, default: false },
+    isVerifiedRide: { type: Boolean, default: true },
+
+    sentiment: {
+      type: String,
+      enum: ['positive', 'neutral', 'negative'],
+      default: 'neutral',
+    },
+    sentimentScore: { type: Number, min: -1, max: 1, default: 0 },
+
+    editHistory: [
+      {
+        editedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+        editedAt: { type: Date, default: Date.now },
+        changes: Schema.Types.Mixed,
+      },
+    ],
+
+    // ─── Các trường mới được thêm (gộp vào đây) ──────────────────────────────
+    isVisible: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
+
+    rideCompletedAt: {
+      type: Date,
+      index: true,
+    },
+
+    appVersion: {
+      type: String,
+      trim: true,
+      maxlength: 50,
+    },
+
+    language: {
+      type: String,
+      enum: ['vi', 'en', 'other'],
+      default: 'vi',
+    },
+
+    internalSentimentScore: {
+      type: Number,
+      min: -1,
+      max: 1,
+      default: 0,
+    },
+
+    hasSensitiveContent: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  {
+    timestamps: true,
+    collection: 'reviews',
+  }
+);
+
+// ─── Indexes ─────────────────────────────────────────────────────────────────
+reviewSchema.index({ 'subject.type': 1, 'subject.id': 1, createdAt: -1 });
+reviewSchema.index({ reviewer: 1, createdAt: -1 });
+reviewSchema.index({ ride: 1, createdAt: -1 });
 reviewSchema.index({ status: 1, createdAt: -1 });
-reviewSchema.index({ rating: -1, createdAt: -1 });
-reviewSchema.index({ tags: 1 });
+reviewSchema.index({ rating: -1 });
 
-// Virtual for helpful percentage
-reviewSchema.virtual('helpfulPercentage').get(function() {
-  return this.totalVotes > 0 ? (this.helpfulVotes / this.totalVotes) * 100 : 0;
+// Indexes bổ sung từ phần bạn thêm
+reviewSchema.index({ driverId: 1, rating: -1, createdAt: -1 });
+reviewSchema.index({ rideId: 1, reviewerId: 1 });
+reviewSchema.index({ subjectType: 1, subjectId: 1, isVisible: 1 });
+reviewSchema.index({ status: 1, isVisible: 1, createdAt: -1 });
+
+// ─── Virtuals ────────────────────────────────────────────────────────────────
+reviewSchema.virtual('helpfulPercentage').get(function () {
+  return this.helpful?.count > 0 ? Math.round((this.helpful.count / (this.helpful.count + 5)) * 100) : 0;
 });
 
-// Method to add helpful vote
-reviewSchema.methods.addHelpfulVote = function(userId) {
-  // In a real implementation, you'd track who voted to prevent duplicates
-  this.helpfulVotes += 1;
-  this.totalVotes += 1;
+// ─── Methods ─────────────────────────────────────────────────────────────────
+reviewSchema.methods.addHelpfulVote = async function () {
+  this.helpful.count += 1;
   return this.save();
 };
 
-// Method to add response
-reviewSchema.methods.addResponse = function(responderId, responderType, responseText) {
+reviewSchema.methods.addResponse = async function (responderId, responderType, text) {
   this.response = {
-    responderId,
+    text: text.trim(),
+    responder: responderId,
     responderType,
-    responseText,
-    respondedAt: new Date()
+    respondedAt: new Date(),
   };
   return this.save();
 };
 
-// Method to flag for moderation
-reviewSchema.methods.flagForModeration = function(reason) {
-  this.status = 'flagged';
-  this.moderationReason = reason;
-  return this.save();
-};
-
-// Method to approve review
-reviewSchema.methods.approve = function(moderatorId) {
+reviewSchema.methods.approve = async function (moderatorId) {
   this.status = 'approved';
-  this.moderatedBy = moderatorId;
-  this.moderatedAt = new Date();
+  this.moderation = { by: moderatorId, at: new Date() };
   return this.save();
 };
 
-// Method to reject review
-reviewSchema.methods.reject = function(moderatorId, reason) {
+reviewSchema.methods.reject = async function (moderatorId, reason) {
   this.status = 'rejected';
-  this.moderatedBy = moderatorId;
-  this.moderatedAt = new Date();
-  this.moderationReason = reason;
+  this.moderation = { reason: reason?.trim(), by: moderatorId, at: new Date() };
   return this.save();
 };
 
-// Static method to calculate average rating for a subject
-reviewSchema.statics.getAverageRating = function(subjectType, subjectId) {
-  return this.aggregate([
-    {
-      $match: {
-        subjectType,
-        subjectId,
-        status: 'approved'
-      }
-    },
-    {
-      $group: {
-        _id: null,
-        averageRating: { $avg: '$rating' },
-        totalReviews: { $sum: 1 },
-        ratingDistribution: {
-          $push: '$rating'
-        }
-      }
-    }
-  ]);
+reviewSchema.methods.flagForModeration = async function (reason) {
+  this.status = 'flagged';
+  this.moderation = { reason: reason?.trim(), at: new Date() };
+  return this.save();
 };
 
-// Static method to get review statistics
-reviewSchema.statics.getReviewStats = function(subjectType, subjectId) {
-  return this.aggregate([
-    {
-      $match: {
-        subjectType,
-        subjectId,
-        status: 'approved'
-      }
-    },
-    {
-      $group: {
-        _id: null,
-        totalReviews: { $sum: 1 },
-        averageRating: { $avg: '$rating' },
-        ratingCounts: {
-          $push: '$rating'
+// ─── Statics ─────────────────────────────────────────────────────────────────
+reviewSchema.statics.hasUserReviewedRide = async function (reviewerId, rideId) {
+  return !!(await this.findOne({ reviewer: reviewerId, ride: rideId, isVisible: true }).select('_id').lean());
+};
+
+// Get average rating for a subject
+reviewSchema.statics.getAverageRating = async function (subjectType, subjectId) {
+  try {
+    const result = await this.aggregate([
+      {
+        $match: {
+          'subject.type': subjectType,
+          'subject.id': new mongoose.Types.ObjectId(subjectId),
+          status: 'approved',
+          isVisible: true,
         },
-        tagCounts: {
-          $push: '$tags'
-        }
-      }
-    },
-    {
-      $project: {
-        totalReviews: 1,
-        averageRating: { $round: ['$averageRating', 1] },
-        ratingDistribution: {
-          1: { $size: { $filter: { input: '$ratingCounts', cond: { $eq: ['$$this', 1] } } } },
-          2: { $size: { $filter: { input: '$ratingCounts', cond: { $eq: ['$$this', 2] } } } },
-          3: { $size: { $filter: { input: '$ratingCounts', cond: { $eq: ['$$this', 3] } } } },
-          4: { $size: { $filter: { input: '$ratingCounts', cond: { $eq: ['$$this', 4] } } } },
-          5: { $size: { $filter: { input: '$ratingCounts', cond: { $eq: ['$$this', 5] } } } }
-        }
-      }
+      },
+      {
+        $group: {
+          _id: null,
+          average: { $avg: '$rating' },
+          total: { $sum: 1 },
+          distribution: {
+            $push: '$rating',
+          },
+        },
+      },
+    ]);
+
+    if (!result || result.length === 0) {
+      return {
+        average: 0,
+        total: 0,
+        distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+      };
     }
-  ]);
-};
 
-// Static method to get reviews with pagination
-reviewSchema.statics.getReviewsWithPagination = function(subjectType, subjectId, page = 1, limit = 10, sortBy = 'createdAt', sortOrder = -1) {
-  const skip = (page - 1) * limit;
-  const sort = {};
-  sort[sortBy] = sortOrder;
+    const data = result[0];
+    const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    data.distribution.forEach((rating) => {
+      if (rating >= 1 && rating <= 5) {
+        distribution[rating] = (distribution[rating] || 0) + 1;
+      }
+    });
 
-  return this.find({
-    subjectType,
-    subjectId,
-    status: 'approved'
-  })
-  .sort(sort)
-  .skip(skip)
-  .limit(limit)
-  .populate('response')
-  .lean();
+    return {
+      average: Math.round((data.average || 0) * 10) / 10,
+      total: data.total || 0,
+      distribution,
+    };
+  } catch (err) {
+    console.error('getAverageRating error:', err);
+    return {
+      average: 0,
+      total: 0,
+      distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+    };
+  }
 };
 
 module.exports = mongoose.model('Review', reviewSchema);

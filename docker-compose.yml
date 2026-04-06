@@ -1,4 +1,4 @@
-version: '3.8'
+
 
 # CAB Booking System - Docker Compose Configuration
 # ================================================
@@ -252,6 +252,7 @@ services:
       - MONGODB_URL=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_booking?authSource=admin
       - REDIS_URL=redis://redis:6379
       - RABBITMQ_URL=amqp://cab_admin:cab123%21%40%23@rabbitmq:5672/cab-booking
+      - PRICING_SERVICE_URL=http://pricing-service:3001
     depends_on:
       postgres:
         condition: service_healthy
@@ -285,7 +286,7 @@ services:
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
-      - MONGODB_URL=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_booking?authSource=admin
+      - MONGODB_URI=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_booking?authSource=admin
       - REDIS_URL=redis://redis:6379
       - RABBITMQ_URL=amqp://cab_admin:cab123%21%40%23@rabbitmq:5672/cab-booking
       - PORT=3009
@@ -389,11 +390,13 @@ services:
       - "3008:3008"
     environment:
       - NODE_ENV=${NODE_ENV:-development}
-      - DATABASE_URL=postgresql://cab_user:cab_pass123@postgres:5432/cab_booking
-      - RABBITMQ_URL=amqp://cab_admin:cab123%21%40%23@rabbitmq:5672/cab-booking
       - PORT=3008
+      - MONGO_URI=mongodb://cab_admin:cab_pass123@mongodb:27017/cab_notification_db?authSource=admin
+      - RABBITMQ_URL=amqp://cab_admin:cab123%21%40%23@rabbitmq:5672/cab-booking
+      - CORS_ORIGIN=http://localhost:5173
+      - CLIENT_URL=http://localhost:5173
     depends_on:
-      postgres:
+      mongodb:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
@@ -477,7 +480,7 @@ services:
     networks:
       - cab-booking-network
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 5

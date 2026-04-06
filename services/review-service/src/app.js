@@ -2,197 +2,201 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const compression = require('compression');
 require('dotenv').config();
 
-// Import configurations
+// ─── Config & DB ─────────────────────────────────────────────────────────────
 const { connectMongoDB, disconnectMongoDB, checkMongoDBHealth } = require('./config/mongodb');
 
-// Import routes
+// ─── Routes & Controller ─────────────────────────────────────────────────────
 const reviewRoutes = require('./routes/reviewRoutes');
-
-// Import controller for cleanup
 const ReviewController = require('./controllers/reviewController');
 
 const app = express();
 const reviewController = new ReviewController();
 
-// --- Security Middleware ---
-app.use(helmet({
-  contentSecurityPolicy: false, // Disable CSP for API
-  crossOriginEmbedderPolicy: false
-}));
+// ─── Middleware Stack ────────────────────────────────────────────────────────
 
-// --- CORS Configuration ---
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || ['http://localhost:8080', 'http://localhost:3000'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Id', 'X-User-Role']
-}));
+// Security headers
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // Tắt CSP vì đây là pure API
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' }
+  })
+);
 
-// --- Logging ---
-app.use(morgan('combined', {
-  skip: (req, res) => process.env.NODE_ENV === 'test'
-}));
+// Compression (giảm bandwidth)
+app.use(compression());
 
-// --- Body Parsing ---
-app.use(express.json({ limit: '10mb' }));
+// CORS
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN
+      ? process.env.CORS_ORIGIN.split(',')
+      : ['http://localhost:3000', 'http://localhost:8080', 'https://your-frontend-domain.com'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Id', 'X-User-Role', 'X-Requested-With']
+  })
+);
+
+// Logging (dev: chi tiết, prod: ngắn gọn)
+app.use(
+  morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev', {
+    skip: () => process.env.NODE_ENV === 'test'
+  })
+);
+
+// Body parser - Parse JSON cho tất cả content types (fix Postman text/plain issue)
+// Sử dụng type: '*/*' để parse JSON cho mọi content-type
+app.use(express.json({ 
+  limit: '10mb',
+  type: (req) => {
+    // Parse JSON cho cả application/json và text/plain
+    const contentType = req.get('Content-Type') || '';
+    return contentType.includes('json') || contentType.includes('text/plain');
+  }
+}));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// --- Request Logging Middleware ---
+// Custom request logger (có thể thay bằng structured logger sau)
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - IP: ${req.ip}`);
+  if (process.env.NODE_ENV !== 'test') {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} - IP: ${req.ip}`);
+  }
   next();
 });
 
-// --- Health Check Endpoint ---
+// ─── Health Check ────────────────────────────────────────────────────────────
 app.get('/api/reviews/health', async (req, res) => {
   try {
-    const mongoHealth = await checkMongoDBHealth();
+    const mongoStatus = await checkMongoDBHealth();
 
     const health = {
       service: 'review-service',
-      status: mongoHealth.status === 'healthy' ? 'healthy' : 'unhealthy',
+      status: mongoStatus.status === 'healthy' ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
+      uptime: Math.round(process.uptime()),
       version: process.env.npm_package_version || '1.0.0',
-      database: mongoHealth,
-      environment: process.env.NODE_ENV || 'development'
+      environment: process.env.NODE_ENV || 'development',
+      database: mongoStatus,
+      memory: {
+        heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + ' MB'
+      }
     };
 
     res.status(health.status === 'healthy' ? 200 : 503).json(health);
-  } catch (error) {
+  } catch (err) {
     res.status(503).json({
       service: 'review-service',
       status: 'error',
-      error: error.message,
+      error: err.message,
       timestamp: new Date().toISOString()
     });
   }
 });
 
-// --- API Routes ---
+// ─── API Routes ──────────────────────────────────────────────────────────────
 app.use('/api/reviews', reviewRoutes);
 
-// --- Root endpoint ---
+// ─── Root / Welcome ──────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
   res.json({
-    message: 'Review Service API',
-    version: '1.0.0',
-    endpoints: {
+    name: 'Review Service',
+    version: process.env.npm_package_version || '1.0.0',
+    description: 'API xử lý đánh giá tài xế, hành khách và chuyến đi',
+    status: 'running',
+    docs: {
       health: 'GET /api/reviews/health',
-      createReview: 'POST /api/reviews',
-      getReviews: 'GET /api/reviews/:subjectType/:subjectId',
-      getReview: 'GET /api/reviews/review/:reviewId',
-      updateReview: 'PUT /api/reviews/:reviewId',
-      deleteReview: 'DELETE /api/reviews/:reviewId',
-      addHelpfulVote: 'POST /api/reviews/:reviewId/helpful',
-      addResponse: 'POST /api/reviews/:reviewId/response',
-      userReviews: 'GET /api/reviews/user/reviews',
-      reviewStats: 'GET /api/reviews/:subjectType/:subjectId/stats',
-      trending: 'GET /api/reviews/trending'
-    },
-    documentation: '/api/reviews/health for service status'
+      swagger: '/api/reviews/docs' // nếu sau này thêm swagger
+    }
   });
 });
 
-// --- 404 Handler ---
-app.use('*', (req, res) => {
+// ─── 404 Handler ─────────────────────────────────────────────────────────────
+app.use((req, res) => {
   res.status(404).json({
-    error: 'Route not found',
-    message: `Cannot ${req.method} ${req.originalUrl}`,
-    availableRoutes: [
-      'GET /',
-      'GET /api/reviews/health',
-      'GET /api/reviews/:subjectType/:subjectId',
-      'POST /api/reviews',
-      'GET /api/reviews/review/:reviewId',
-      'PUT /api/reviews/:reviewId',
-      'DELETE /api/reviews/:reviewId'
-    ]
+    success: false,
+    message: `Không tìm thấy route: ${req.method} ${req.originalUrl}`,
+    code: 'NOT_FOUND'
   });
 });
 
-// --- Error Handling Middleware ---
+// ─── Global Error Handler ────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-
-  // Mongoose validation error
-  if (err.name === 'ValidationError') {
-    const errors = Object.values(err.errors).map(e => e.message);
-    return res.status(400).json({
-      error: 'Validation Error',
-      message: errors.join(', ')
-    });
-  }
-
-  // MongoDB duplicate key error
-  if (err.code === 11000) {
-    return res.status(409).json({
-      error: 'Duplicate Error',
-      message: 'Resource already exists'
-    });
-  }
-
-  // JWT errors
-  if (err.name === 'JsonWebTokenError') {
-    return res.status(401).json({
-      error: 'Authentication Error',
-      message: 'Invalid token'
-    });
-  }
-
-  // Default error
-  res.status(500).json({
-    error: 'Internal Server Error',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
-    timestamp: new Date().toISOString()
+  console.error('Global error handler:', {
+    method: req.method,
+    url: req.originalUrl,
+    ip: req.ip,
+    error: err.message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
+
+  const status = err.status || 500;
+  const response = {
+    success: false,
+    message: status >= 500 ? 'Lỗi hệ thống' : err.message || 'Có lỗi xảy ra',
+    code: err.code || 'INTERNAL_ERROR',
+    timestamp: new Date().toISOString()
+  };
+
+  // Xử lý lỗi cụ thể
+  if (err.name === 'ValidationError') {
+    response.code = 'VALIDATION_ERROR';
+    response.errors = Object.values(err.errors).map(e => e.message);
+    return res.status(400).json(response);
+  }
+
+  if (err.code === 11000) {
+    response.code = 'CONFLICT';
+    response.message = 'Dữ liệu đã tồn tại';
+    return res.status(409).json(response);
+  }
+
+  res.status(status).json(response);
 });
 
-// --- Graceful Shutdown ---
-process.on('SIGTERM', async () => {
-  console.log('🛑 SIGTERM received, shutting down gracefully...');
+// ─── Graceful Shutdown ───────────────────────────────────────────────────────
+const gracefulShutdown = async (signal) => {
+  console.log(`\n${signal} received. Shutting down gracefully...`);
+
+  const shutdownTimeout = setTimeout(() => {
+    console.error('Graceful shutdown timeout. Force exit.');
+    process.exit(1);
+  }, 10000);
 
   try {
-    // Cleanup resources
-    await reviewController.cleanup();
+    // Cleanup logic
+    await reviewController.cleanup?.();
     await disconnectMongoDB();
 
-    console.log('✅ Review Service shutdown complete');
+    console.log('All resources cleaned up successfully');
+    clearTimeout(shutdownTimeout);
     process.exit(0);
-  } catch (error) {
-    console.error('❌ Error during shutdown:', error);
+  } catch (err) {
+    console.error('Error during shutdown:', err);
+    clearTimeout(shutdownTimeout);
     process.exit(1);
   }
-});
+};
 
-process.on('SIGINT', async () => {
-  console.log('🛑 SIGINT received, shutting down gracefully...');
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-  try {
-    await reviewController.cleanup();
-    await disconnectMongoDB();
-
-    console.log('✅ Review Service shutdown complete');
-    process.exit(0);
-  } catch (error) {
-    console.error('❌ Error during shutdown:', error);
-    process.exit(1);
-  }
-});
-
-// --- Unhandled Promise Rejections ---
+// ─── Unhandled Rejection & Exception ─────────────────────────────────────────
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  // In production, you might want to exit the process
-  // process.exit(1);
+  console.error('Unhandled Rejection:', { promise, reason });
+  // Trong production có thể gửi alert (Sentry, etc.)
 });
 
-// --- Uncaught Exceptions ---
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
   process.exit(1);
 });
+
+// ─── Export app ────────────────────────────────────────────────────────
+// Note: Server startup is handled in index.js, not here
+// This file only exports the Express app instance
 
 module.exports = app;

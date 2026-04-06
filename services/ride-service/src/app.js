@@ -43,15 +43,23 @@ app.use((req, res, next) => {
 // Routes
 app.use('/api/rides', rideRoutes);
 
+const healthResponse = () => ({
+  service: 'ride-service',
+  status: 'healthy',
+  timestamp: new Date().toISOString(),
+  uptime: process.uptime(),
+  mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+  rabbitmq: rabbitmqService.channel ? 'connected' : 'disconnected'
+});
+
 // Health check
 app.get('/health', (req, res) => {
+  res.json(healthResponse());
+});
+
+app.get('/api/rides/health', (req, res) => {
   res.json({
-    service: 'ride-service',
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-    rabbitmq: rabbitmqService.channel ? 'connected' : 'disconnected'
+    ...healthResponse()
   });
 });
 

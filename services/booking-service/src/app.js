@@ -99,13 +99,17 @@ app.use(express.urlencoded({ extended: true }));
 // =====================
 // HEALTH CHECK
 // =====================
-app.get('/health', (req, res) => {
+app.get('/api/bookings/health', (req, res) => {
   res.json({
     service: 'booking-service',
     status: 'healthy',
     timestamp: new Date().toISOString()
   })
 })
+
+app.get('/health', (req, res) => {
+  res.redirect('/api/bookings/health');
+});
 
 // =====================
 // RABBITMQ INIT
@@ -220,7 +224,7 @@ app.get('/', (req, res) => {
   });
 });
 
-app.use('/bookings', bookingRoutes);
+app.use('/api/bookings', bookingRoutes);
 
 // =====================
 // 404 + ERROR HANDLER

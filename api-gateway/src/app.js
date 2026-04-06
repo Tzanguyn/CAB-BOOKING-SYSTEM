@@ -33,6 +33,9 @@ const proxy = (target, pathRewrite = {}) =>
 	createProxyMiddleware({
 		target,
 		changeOrigin: true,
+        xfwd: true,
+        proxyTimeout: 30000,
+        timeout: 30000,
 		pathRewrite,
 		onProxyReq: (proxyReq, req, res) => {
 			console.log(`→ Proxying ${req.method} ${req.originalUrl} to ${target}${proxyReq.path}`)
@@ -53,23 +56,6 @@ const proxy = (target, pathRewrite = {}) =>
 	})
 
 // Route to upstream services (container DNS names)
-=======
-const proxy = (target) =>
-    createProxyMiddleware({
-        target,
-        changeOrigin: true,
-        xfwd: true,
-        proxyTimeout: 30000,
-        timeout: 30000,
-        onError: (err, req, res) => {
-            res.status(502).json({
-                error: 'Bad gateway',
-                target,
-                message: err.message
-            })
-        }
-    })
-    // Route to upstream services (container DNS names)
 
 app.use(
     '/auth',

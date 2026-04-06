@@ -47,9 +47,9 @@ class BookingService {
     // Lấy giá từ Pricing Service
     async getEstimatedFare(pickupLocation, dropoffLocation) {
         try {
-            const pricingServiceUrl = process.env.PRICING_SERVICE_URL || 'http://localhost:3006';
+            const pricingServiceUrl = process.env.PRICING_SERVICE_URL || 'http://pricing-service:3001';
             
-            const response = await axios.post(`${pricingServiceUrl}/pricing/estimate`, {
+            const response = await axios.post(`${pricingServiceUrl}/api/pricing/estimate`, {
                 pickupLocation,
                 dropoffLocation
             });

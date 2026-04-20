@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { calculateExponentialBackoffDelay } = require('../../../../shared/utils/retryPolicy');
 
 const paymentSchema = new mongoose.Schema({
   paymentId: {
@@ -286,7 +287,13 @@ paymentSchema.methods.failProcessing = function(error, retryable = false) {
   if (retryable && this.retryCount < this.maxRetries) {
     this.status = 'pending';
     this.retryCount += 1;
-    this.nextRetryAt = new Date(Date.now() + (this.retryCount * 60000));
+    const delayMs = calculateExponentialBackoffDelay(this.retryCount, {
+      initialDelayMs: Number(process.env.PAYMENT_RETRY_INITIAL_BACKOFF_MS || 60000),
+      maxDelayMs: Number(process.env.PAYMENT_RETRY_MAX_BACKOFF_MS || 15 * 60000),
+      multiplier: Number(process.env.PAYMENT_RETRY_BACKOFF_MULTIPLIER || 2),
+      jitterRatio: Number(process.env.PAYMENT_RETRY_JITTER_RATIO || 0.1)
+    });
+    this.nextRetryAt = new Date(Date.now() + delayMs);
   }
   this.addAuditEntry('processing_failed', 'payment_provider', { error, retryable });
   return this.save();

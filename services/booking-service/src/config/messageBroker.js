@@ -5,8 +5,10 @@ const {
     handlePaymentCompleted,
     handlePaymentFailed
 } = require('../events/eventHandlers');
+const { createEventDrivenMatcher } = require('../utils/eventDrivenMatcher');
 
 let channel = null;
+let eventDrivenMatcher = null;
 
 const initMessageBroker = async () => {
     try {
@@ -17,6 +19,7 @@ const initMessageBroker = async () => {
         
         // Declare exchanges and queues
         await channel.assertExchange('ride_events', 'topic', { durable: true });
+        await channel.assertExchange('matching', 'topic', { durable: true });
         await channel.assertQueue('booking_queue', { durable: true });
         
         // Bind queue to exchanges with routing keys
@@ -24,6 +27,13 @@ const initMessageBroker = async () => {
         await channel.bindQueue('booking_queue', 'ride_events', 'ride.cancelled');
         await channel.bindQueue('booking_queue', 'ride_events', 'payment.completed');
         await channel.bindQueue('booking_queue', 'ride_events', 'payment.failed');
+        
+        // Initialize event-driven matcher if enabled
+        if (process.env.USE_EVENT_DRIVEN_MATCHING !== 'false') {
+            eventDrivenMatcher = await createEventDrivenMatcher(channel, {
+                matchingTimeoutMs: Number(process.env.MATCHING_TIMEOUT_MS || 3000)
+            });
+        }
         
         // Subscribe to messages
         await subscribeToEvents();
@@ -111,5 +121,12 @@ const subscribeToEvents = async () => {
 module.exports = {
     initMessageBroker,
     getChannel,
-    publishEvent
+    publishEvent,
+    getEventDrivenMatcher: () => eventDrivenMatcher,
+    setBookingServiceMatcher: (bookingService) => {
+        if (eventDrivenMatcher && bookingService) {
+            bookingService.eventDrivenMatcher = eventDrivenMatcher;
+            console.log('✅ Event-driven matcher set on BookingService');
+        }
+    }
 };

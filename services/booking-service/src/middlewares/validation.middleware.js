@@ -1,5 +1,32 @@
 const validateBookingCreate = (req, res, next) => {
-    const { customerId, pickupLocation, dropoffLocation, paymentMethod } = req.body;
+    const body = req.body || {};
+    const { customerId } = body;
+    const pickup = body.pickupLocation || body.pickup;
+    const drop = body.dropoffLocation || body.drop;
+    const paymentMethod = body.paymentMethod || body.payment_method;
+
+    const normalizedPickup = pickup
+        ? {
+            address: pickup.address || '',
+            latitude: pickup.latitude ?? pickup.lat,
+            longitude: pickup.longitude ?? pickup.lng
+        }
+        : null;
+
+    const normalizedDrop = drop
+        ? {
+            address: drop.address || '',
+            latitude: drop.latitude ?? drop.lat,
+            longitude: drop.longitude ?? drop.lng
+        }
+        : null;
+
+    req.body = {
+        ...body,
+        paymentMethod,
+        pickupLocation: normalizedPickup,
+        dropoffLocation: normalizedDrop
+    };
 
     // Validate required fields
     if (!customerId) {
@@ -9,47 +36,57 @@ const validateBookingCreate = (req, res, next) => {
         });
     }
 
-    if (!pickupLocation || !pickupLocation.address || !pickupLocation.latitude || !pickupLocation.longitude) {
+    if (!normalizedPickup) {
         return res.status(400).json({
             success: false,
-            message: 'pickupLocation with address, latitude, and longitude is required'
+            message: 'pickup is required'
         });
     }
 
-    if (!dropoffLocation || !dropoffLocation.address || !dropoffLocation.latitude || !dropoffLocation.longitude) {
+    if (!normalizedDrop) {
         return res.status(400).json({
             success: false,
-            message: 'dropoffLocation with address, latitude, and longitude is required'
+            message: 'drop is required'
         });
     }
 
     // Validate payment method
     const validPaymentMethods = ['CASH', 'CARD', 'WALLET'];
-    if (paymentMethod && !validPaymentMethods.includes(paymentMethod)) {
+    if (paymentMethod && !validPaymentMethods.includes(String(paymentMethod).toUpperCase())) {
         return res.status(400).json({
             success: false,
-            message: `paymentMethod must be one of: ${validPaymentMethods.join(', ')}`
+            message: 'Invalid payment method'
         });
     }
 
-    // Validate location format (latitude and longitude should be numbers between -180 and 180)
+    // Validate location format (latitude and longitude must be number types)
     const isValidCoord = (lat, lng) => {
-        return typeof lat === 'number' && typeof lng === 'number' &&
-               lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+        return typeof lat === 'number'
+            && typeof lng === 'number'
+            && Number.isFinite(lat)
+            && Number.isFinite(lng)
+            && lat >= -90
+            && lat <= 90
+            && lng >= -180
+            && lng <= 180;
     };
 
-    if (!isValidCoord(pickupLocation.latitude, pickupLocation.longitude)) {
-        return res.status(400).json({
+    if (!isValidCoord(normalizedPickup.latitude, normalizedPickup.longitude)) {
+        return res.status(422).json({
             success: false,
-            message: 'Invalid pickup location coordinates'
+            message: 'Validation error from schema'
         });
     }
 
-    if (!isValidCoord(dropoffLocation.latitude, dropoffLocation.longitude)) {
-        return res.status(400).json({
+    if (!isValidCoord(normalizedDrop.latitude, normalizedDrop.longitude)) {
+        return res.status(422).json({
             success: false,
-            message: 'Invalid dropoff location coordinates'
+            message: 'Validation error from schema'
         });
+    }
+
+    if (paymentMethod) {
+        req.body.paymentMethod = String(paymentMethod).toUpperCase();
     }
 
     next();

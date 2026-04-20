@@ -52,6 +52,20 @@ class DriverController {
     );
     res.json({ drivers });
   };
+
+  recommendDrivers = async (req, res) => {
+    const { lat, lng, radius, top } = req.query;
+    const recommendations = await this.service.getTopDriverRecommendations(
+      Number(lat),
+      Number(lng),
+      Number(radius || 5),
+      Number(top || 3)
+    );
+    res.json({
+      recommendations,
+      model_version: process.env.RECOMMENDATION_MODEL_VERSION || 'driver-recommend-v1.0.0'
+    });
+  };
 }
 
 module.exports = DriverController;

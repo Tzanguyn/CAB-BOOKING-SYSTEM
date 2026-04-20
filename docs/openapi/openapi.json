@@ -1,0 +1,408 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "CAB Booking System API",
+    "version": "1.0.0",
+    "description": "Aggregated OpenAPI snapshot for the current CAB Booking System repo state."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "API Gateway"
+    }
+  ],
+  "tags": [
+    { "name": "auth" },
+    { "name": "users" },
+    { "name": "drivers" },
+    { "name": "bookings" },
+    { "name": "rides" },
+    { "name": "payments" },
+    { "name": "pricing" },
+    { "name": "matching" },
+    { "name": "eta" },
+    { "name": "notifications" },
+    { "name": "reviews" },
+    { "name": "realtime" }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["auth"],
+        "summary": "Gateway health",
+        "responses": { "200": { "description": "Healthy" } }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Register a new account",
+        "requestBody": { "$ref": "#/components/requestBodies/RegisterRequest" },
+        "responses": { "201": { "description": "Created" }, "400": { "description": "Validation error" } }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Login",
+        "requestBody": { "$ref": "#/components/requestBodies/LoginRequest" },
+        "responses": { "200": { "description": "Authenticated" }, "401": { "description": "Invalid credentials" } }
+      }
+    },
+    "/auth/refresh-token": {
+      "post": { "tags": ["auth"], "summary": "Refresh token", "responses": { "200": { "description": "Refreshed" } } }
+    },
+    "/auth/logout": {
+      "post": { "tags": ["auth"], "summary": "Logout", "responses": { "200": { "description": "Logged out" } } }
+    },
+    "/auth/profile": {
+      "get": { "tags": ["auth"], "summary": "Get current profile", "responses": { "200": { "description": "Profile" } } },
+      "put": { "tags": ["auth"], "summary": "Update profile", "responses": { "200": { "description": "Updated" } } }
+    },
+    "/api/users/{userId}": {
+      "get": {
+        "tags": ["users"],
+        "summary": "Get user by id",
+        "parameters": [{ "$ref": "#/components/parameters/UserIdParam" }],
+        "responses": { "200": { "description": "User" }, "403": { "description": "Forbidden" } }
+      }
+    },
+    "/api/drivers/health": {
+      "get": { "tags": ["drivers"], "summary": "Driver service health", "responses": { "200": { "description": "Healthy" } } }
+    },
+    "/api/drivers/profile": {
+      "post": { "tags": ["drivers"], "summary": "Create driver profile", "responses": { "200": { "description": "Created" } } }
+    },
+    "/api/drivers/status/{driverId}": {
+      "get": {
+        "tags": ["drivers"],
+        "summary": "Get driver status",
+        "parameters": [{ "$ref": "#/components/parameters/DriverIdParam" }],
+        "responses": { "200": { "description": "Driver status" } }
+      },
+      "put": {
+        "tags": ["drivers"],
+        "summary": "Update driver status",
+        "parameters": [{ "$ref": "#/components/parameters/DriverIdParam" }],
+        "responses": { "200": { "description": "Updated" } }
+      }
+    },
+    "/api/drivers/location/{driverId}": {
+      "put": {
+        "tags": ["drivers"],
+        "summary": "Update driver location",
+        "parameters": [{ "$ref": "#/components/parameters/DriverIdParam" }],
+        "requestBody": { "$ref": "#/components/requestBodies/DriverLocationRequest" },
+        "responses": { "200": { "description": "Updated" } }
+      }
+    },
+    "/api/drivers/nearby": {
+      "get": {
+        "tags": ["drivers"],
+        "summary": "Find nearby drivers",
+        "responses": { "200": { "description": "Nearby drivers" } }
+      }
+    },
+    "/api/drivers/recommendations": {
+      "get": {
+        "tags": ["drivers"],
+        "summary": "Recommend drivers",
+        "responses": { "200": { "description": "Recommendations" } }
+      }
+    },
+    "/api/bookings/health": {
+      "get": { "tags": ["bookings"], "summary": "Booking service health", "responses": { "200": { "description": "Healthy" } } }
+    },
+    "/api/bookings": {
+      "post": {
+        "tags": ["bookings"],
+        "summary": "Create booking",
+        "requestBody": { "$ref": "#/components/requestBodies/BookingCreateRequest" },
+        "responses": { "201": { "description": "Created" }, "200": { "description": "Replay or handled scenario" }, "400": { "description": "Validation error" }, "422": { "description": "Schema validation error" } }
+      }
+    },
+    "/api/bookings/{id}": {
+      "get": {
+        "tags": ["bookings"],
+        "summary": "Get booking by id",
+        "parameters": [{ "$ref": "#/components/parameters/BookingIdParam" }],
+        "responses": { "200": { "description": "Booking" } }
+      }
+    },
+    "/api/bookings/{id}/context": {
+      "get": {
+        "tags": ["bookings"],
+        "summary": "Get MCP context for booking",
+        "parameters": [{ "$ref": "#/components/parameters/BookingIdParam" }],
+        "responses": { "200": { "description": "Context" } }
+      }
+    },
+    "/api/bookings/{id}/confirm": {
+      "post": {
+        "tags": ["bookings"],
+        "summary": "Confirm booking",
+        "parameters": [{ "$ref": "#/components/parameters/BookingIdParam" }],
+        "requestBody": { "$ref": "#/components/requestBodies/BookingConfirmRequest" },
+        "responses": { "200": { "description": "Confirmed" } }
+      }
+    },
+    "/api/bookings/{id}/status": {
+      "put": { "tags": ["bookings"], "summary": "Update booking status", "responses": { "200": { "description": "Updated" } } }
+    },
+    "/api/bookings/customer/{customerId}": {
+      "get": {
+        "tags": ["bookings"],
+        "summary": "List bookings by customer",
+        "parameters": [{ "$ref": "#/components/parameters/CustomerIdParam" }],
+        "responses": { "200": { "description": "Bookings" } }
+      }
+    },
+    "/api/rides/health": {
+      "get": { "tags": ["rides"], "summary": "Ride service health", "responses": { "200": { "description": "Healthy" } } }
+    },
+    "/api/rides": {
+      "post": { "tags": ["rides"], "summary": "Create ride", "responses": { "200": { "description": "Ride created" } } }
+    },
+    "/api/rides/{rideId}": {
+      "get": {
+        "tags": ["rides"],
+        "summary": "Get ride details",
+        "parameters": [{ "$ref": "#/components/parameters/RideIdParam" }],
+        "responses": { "200": { "description": "Ride" } }
+      }
+    },
+    "/api/rides/{rideId}/status": {
+      "put": { "tags": ["rides"], "summary": "Update ride status", "parameters": [{ "$ref": "#/components/parameters/RideIdParam" }], "responses": { "200": { "description": "Updated" } } }
+    },
+    "/api/rides/{rideId}/location": {
+      "put": { "tags": ["rides"], "summary": "Update ride location", "parameters": [{ "$ref": "#/components/parameters/RideIdParam" }], "responses": { "200": { "description": "Updated" } } }
+    },
+    "/api/payments/health": {
+      "get": { "tags": ["payments"], "summary": "Payment service health", "responses": { "200": { "description": "Healthy" } } }
+    },
+    "/api/payments": {
+      "post": {
+        "tags": ["payments"],
+        "summary": "Create payment",
+        "requestBody": { "$ref": "#/components/requestBodies/PaymentCreateRequest" },
+        "responses": { "201": { "description": "Created" }, "200": { "description": "Idempotent replay" } }
+      }
+    },
+    "/api/payments/test-order": {
+      "post": { "tags": ["payments"], "summary": "Legacy test route", "responses": { "200": { "description": "Created" } } }
+    },
+    "/api/payments/{paymentId}": {
+      "get": {
+        "tags": ["payments"],
+        "summary": "Get payment by id",
+        "parameters": [{ "$ref": "#/components/parameters/PaymentIdParam" }],
+        "responses": { "200": { "description": "Payment" } }
+      }
+    },
+    "/api/payments/{paymentId}/confirm": {
+      "post": {
+        "tags": ["payments"],
+        "summary": "Confirm payment",
+        "parameters": [{ "$ref": "#/components/parameters/PaymentIdParam" }],
+        "responses": { "200": { "description": "Confirmed" } }
+      }
+    },
+    "/api/pricing/health": {
+      "get": { "tags": ["pricing"], "summary": "Pricing service health", "responses": { "200": { "description": "Healthy" } } }
+    },
+    "/api/pricing/estimate": {
+      "post": { "tags": ["pricing"], "summary": "Estimate fare", "requestBody": { "$ref": "#/components/requestBodies/PricingEstimateRequest" }, "responses": { "200": { "description": "Estimate" } } }
+    },
+    "/api/pricing/forecast": {
+      "post": { "tags": ["pricing"], "summary": "Forecast demand/surge", "responses": { "200": { "description": "Forecast" } } }
+    },
+    "/api/pricing/drift-check": {
+      "post": { "tags": ["pricing"], "summary": "Check model drift", "responses": { "200": { "description": "Drift check" } } }
+    },
+    "/api/pricing/recommend-drivers": {
+      "get": { "tags": ["pricing"], "summary": "Recommend drivers", "responses": { "200": { "description": "Recommendations" } } }
+    },
+    "/api/matching/health": {
+      "get": { "tags": ["matching"], "summary": "Matching service health", "responses": { "200": { "description": "Healthy" } } }
+    },
+    "/api/matching/recommend": {
+      "post": {
+        "tags": ["matching"],
+        "summary": "Recommend drivers using matching service",
+        "responses": { "200": { "description": "Recommendations" } }
+      }
+    },
+    "/api/eta/health": {
+      "get": { "tags": ["eta"], "summary": "ETA health", "responses": { "200": { "description": "Healthy" } } }
+    },
+    "/api/eta/estimate": {
+      "post": { "tags": ["eta"], "summary": "Estimate ETA", "requestBody": { "$ref": "#/components/requestBodies/EtaEstimateRequest" }, "responses": { "200": { "description": "ETA" } } }
+    },
+    "/api/notifications/health": {
+      "get": { "tags": ["notifications"], "summary": "Notification health", "responses": { "200": { "description": "Healthy" } } }
+    },
+    "/api/notifications/send": {
+      "post": { "tags": ["notifications"], "summary": "Send notification", "responses": { "200": { "description": "Sent" } } }
+    },
+    "/api/reviews/health": {
+      "get": { "tags": ["reviews"], "summary": "Review health", "responses": { "200": { "description": "Healthy" } } }
+    },
+    "/api/reviews": {
+      "post": { "tags": ["reviews"], "summary": "Create review", "responses": { "200": { "description": "Created" } } }
+    },
+    "/api/realtime/stats": {
+      "get": { "tags": ["realtime"], "summary": "Realtime stats", "responses": { "200": { "description": "Stats" } } }
+    },
+    "/api/realtime/drivers/{driverId}/location": {
+      "get": {
+        "tags": ["realtime"],
+        "summary": "Get driver realtime location",
+        "parameters": [{ "$ref": "#/components/parameters/DriverIdParam" }],
+        "responses": { "200": { "description": "Driver location" } }
+      }
+    },
+    "/api/realtime/drivers/nearby": {
+      "get": { "tags": ["realtime"], "summary": "Find nearby drivers", "responses": { "200": { "description": "Nearby" } } }
+    },
+    "/api/realtime/rides/{rideId}/route": {
+      "get": {
+        "tags": ["realtime"],
+        "summary": "Get ride route",
+        "parameters": [{ "$ref": "#/components/parameters/RideIdParam" }],
+        "responses": { "200": { "description": "Route" } }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "UserIdParam": {
+        "name": "userId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" }
+      },
+      "DriverIdParam": {
+        "name": "driverId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" }
+      },
+      "CustomerIdParam": {
+        "name": "customerId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" }
+      },
+      "RideIdParam": {
+        "name": "rideId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" }
+      },
+      "BookingIdParam": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" }
+      },
+      "PaymentIdParam": {
+        "name": "paymentId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" }
+      }
+    },
+    "requestBodies": {
+      "RegisterRequest": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": ["email", "phone", "password"],
+              "properties": {
+                "email": { "type": "string" },
+                "phone": { "type": "string" },
+                "password": { "type": "string" },
+                "firstName": { "type": "string" },
+                "lastName": { "type": "string" },
+                "role": { "type": "string", "enum": ["customer", "driver", "admin"] }
+              }
+            }
+          }
+        }
+      },
+      "LoginRequest": {
+        "required": true,
+        "content": { "application/json": { "schema": { "type": "object", "required": ["email", "password"], "properties": { "email": { "type": "string" }, "password": { "type": "string" } } } } }
+      },
+      "BookingCreateRequest": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": ["customerId", "pickupLocation", "dropoffLocation"],
+              "properties": {
+                "customerId": { "type": "string" },
+                "pickupLocation": { "$ref": "#/components/schemas/Location" },
+                "dropoffLocation": { "$ref": "#/components/schemas/Location" },
+                "paymentMethod": { "type": "string", "enum": ["CASH", "CARD", "WALLET"] },
+                "autoAssign": { "type": "boolean" },
+                "searchRadiusKm": { "type": "number" },
+                "idempotencyKey": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "BookingConfirmRequest": {
+        "required": true,
+        "content": { "application/json": { "schema": { "type": "object", "required": ["driverId", "rideId"], "properties": { "driverId": { "type": "string" }, "rideId": { "type": "string" } } } } }
+      },
+      "DriverLocationRequest": {
+        "required": true,
+        "content": { "application/json": { "schema": { "type": "object", "properties": { "latitude": { "type": "number" }, "longitude": { "type": "number" }, "lat": { "type": "number" }, "lng": { "type": "number" } } } } }
+      },
+      "PaymentCreateRequest": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": ["rideId", "amount", "userId"],
+              "properties": {
+                "rideId": { "type": "string" },
+                "amount": { "type": "number" },
+                "userId": { "type": "string" },
+                "driverId": { "type": "string" },
+                "method": { "type": "string" },
+                "provider": { "type": "string" },
+                "idempotencyKey": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "PricingEstimateRequest": {
+        "required": true,
+        "content": { "application/json": { "schema": { "type": "object", "properties": { "distance_km": { "type": "number" }, "demand_index": { "type": "number" }, "supply_index": { "type": "number" }, "vehicleType": { "type": "string" } } } } }
+      },
+      "EtaEstimateRequest": {
+        "required": true,
+        "content": { "application/json": { "schema": { "type": "object", "properties": { "distance_km": { "type": "number" }, "traffic_level": { "type": "number" }, "avg_speed_kmh": { "type": "number" }, "weather_factor": { "type": "number" } } } } }
+      }
+    },
+    "schemas": {
+      "Location": {
+        "type": "object",
+        "required": ["address", "latitude", "longitude"],
+        "properties": {
+          "address": { "type": "string" },
+          "latitude": { "type": "number" },
+          "longitude": { "type": "number" }
+        }
+      }
+    }
+  }
+}

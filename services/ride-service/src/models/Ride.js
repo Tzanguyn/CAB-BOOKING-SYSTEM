@@ -1,5 +1,16 @@
 const mongoose = require('mongoose');
 
+function toGeoPoint(coords) {
+  if (!coords || typeof coords.lat !== 'number' || typeof coords.lng !== 'number') {
+    return undefined;
+  }
+
+  return {
+    type: 'Point',
+    coordinates: [coords.lng, coords.lat]
+  };
+}
+
 const rideSchema = new mongoose.Schema({
   rideId: {
     type: String,
@@ -77,6 +88,21 @@ const rideSchema = new mongoose.Schema({
         max: 180
       }
     },
+    geo: {
+      type: {
+        type: String,
+        enum: ['Point']
+      },
+      coordinates: {
+        type: [Number],
+        validate: {
+          validator(value) {
+            return !value || (Array.isArray(value) && value.length === 2);
+          },
+          message: 'GeoJSON coordinates must be [lng, lat]'
+        }
+      }
+    },
     placeId: String,
     instructions: String
   },
@@ -98,6 +124,21 @@ const rideSchema = new mongoose.Schema({
         required: true,
         min: -180,
         max: 180
+      }
+    },
+    geo: {
+      type: {
+        type: String,
+        enum: ['Point']
+      },
+      coordinates: {
+        type: [Number],
+        validate: {
+          validator(value) {
+            return !value || (Array.isArray(value) && value.length === 2);
+          },
+          message: 'GeoJSON coordinates must be [lng, lat]'
+        }
       }
     },
     placeId: String,
@@ -326,6 +367,21 @@ const rideSchema = new mongoose.Schema({
       lat: Number,
       lng: Number
     },
+    geo: {
+      type: {
+        type: String,
+        enum: ['Point']
+      },
+      coordinates: {
+        type: [Number],
+        validate: {
+          validator(value) {
+            return !value || (Array.isArray(value) && value.length === 2);
+          },
+          message: 'GeoJSON coordinates must be [lng, lat]'
+        }
+      }
+    },
     heading: Number,
     speed: Number,
     timestamp: Date
@@ -388,11 +444,28 @@ rideSchema.index({ rideId: 1 }, { unique: true });
 rideSchema.index({ userId: 1, createdAt: -1 });
 rideSchema.index({ driverId: 1, createdAt: -1 });
 rideSchema.index({ status: 1, createdAt: -1 });
-rideSchema.index({ 'pickup.coordinates': '2dsphere' });
-rideSchema.index({ 'destination.coordinates': '2dsphere' });
+rideSchema.index({ 'pickup.geo': '2dsphere' });
+rideSchema.index({ 'destination.geo': '2dsphere' });
+rideSchema.index({ 'currentLocation.geo': '2dsphere' });
 rideSchema.index({ 'timing.requestedAt': -1 });
 rideSchema.index({ 'payment.status': 1 });
 rideSchema.index({ 'emergency.isEmergency': 1 });
+
+rideSchema.pre('validate', function(next) {
+  if (this.pickup?.coordinates) {
+    this.pickup.geo = toGeoPoint(this.pickup.coordinates);
+  }
+
+  if (this.destination?.coordinates) {
+    this.destination.geo = toGeoPoint(this.destination.coordinates);
+  }
+
+  if (this.currentLocation?.coordinates) {
+    this.currentLocation.geo = toGeoPoint(this.currentLocation.coordinates);
+  }
+
+  next();
+});
 
 // Virtual for ride duration
 rideSchema.virtual('duration').get(function() {
@@ -466,11 +539,18 @@ rideSchema.methods.updateStatus = function(newStatus, actor = 'system', metadata
       break;
   }
 
-  // Add audit entry
-  this.addAuditEntry('status_change', actor, {
-    from: oldStatus,
-    to: newStatus
-  }, metadata);
+  // Inline audit append here to avoid nested save() calls.
+  this.auditLog.push({
+    action: 'status_change',
+    actor,
+    details: {
+      from: oldStatus,
+      to: newStatus
+    },
+    ipAddress: metadata.ipAddress,
+    userAgent: metadata.userAgent,
+    timestamp: new Date()
+  });
 
   return this.save();
 };
@@ -478,7 +558,7 @@ rideSchema.methods.updateStatus = function(newStatus, actor = 'system', metadata
 // Static method to find rides by status and location
 rideSchema.statics.findNearbyRides = function(lat, lng, radiusKm = 5, status = null) {
   const query = {
-    'pickup.coordinates': {
+    'pickup.geo': {
       $near: {
         $geometry: {
           type: 'Point',

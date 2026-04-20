@@ -1,0 +1,44 @@
+name: cab-booking-ci
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+
+jobs:
+  compliance-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Run cloud-native and security compliance gate
+        run: npm run ci:compliance
+
+      - name: Validate OpenAPI generation and drift checks
+        run: npm run ci:openapi
+
+      - name: Validate realtime smoke script wiring
+        run: npm run smoke:realtime:dry
+
+  manifests-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Validate Kubernetes manifests
+        run: kubectl kustomize k8s/base > /tmp/cab-booking-k8s.yaml

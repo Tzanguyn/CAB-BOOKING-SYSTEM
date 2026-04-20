@@ -76,6 +76,8 @@ cab-booking-system/
 │   ├── payment-service/             # Payment Processing (Port: 3006)
 │   ├── notification-service/        # Multi-channel Notifications (Port: 3007)
 │   ├── pricing-service/             # AI Pricing Engine (Port: 3008)
+│   ├── eta-service/                 # ETA Estimation (Port: 3011)
+│   ├── fraud-service/               # Fraud Validation (Port: 3012)
 │   └── review-service/              # Review & Rating System (Port: 3009)
 │
 ├── realtime/                        # Real-time Services
@@ -353,6 +355,9 @@ docker-compose --profile base up -d
 # Khởi động tất cả services với hot reload
 docker-compose --profile development up -d
 
+# Khuyến nghị cho smoke test Level 1/2
+docker compose --profile development up -d postgres mongodb redis rabbitmq auth-service booking-service driver-service pricing-service notification-service eta-service fraud-service api-gateway
+
 # Hoặc từng bước:
 # Bước 1: Infrastructure
 docker-compose --profile base up -d
@@ -400,13 +405,16 @@ docker-compose --profile development logs -f auth-service
 # Health checks
 curl http://localhost:3000/health              # API Gateway
 curl http://localhost:3004/auth/health         # Auth Service
+curl http://localhost:3003/api/bookings/health # Booking Service
+curl http://localhost:3001/api/pricing/health  # Pricing Service
+curl http://localhost:3011/api/eta/health      # ETA Service
+curl http://localhost:3012/api/fraud/health    # Fraud Service
 curl http://localhost:3006/api/reviews/health  # Review Service
 curl http://localhost:3005/api/users/health    # User Service
 curl http://localhost:3007/api/drivers/health  # Driver Service
 curl http://localhost:3009/api/rides/health    # Ride Service
 curl http://localhost:3002/api/payments/health # Payment Service
 curl http://localhost:3008/api/notifications/health # Notification Service
-curl http://localhost:3001/api/pricing/health  # Pricing Service
 
 # RabbitMQ Management UI
 open http://localhost:15672
@@ -507,6 +515,19 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 ---
 
 ## 🧪 Testing
+
+### Smoke Tests (Khuyến nghị)
+```bash
+# Level 1: Core happy path (cases 1-10)
+npm run smoke:level1
+
+# Level 2: Validation + edge cases (cases 11-20)
+npm run smoke:level2
+```
+
+Ghi chú:
+- Case 17 (Fraud API missing fields) đã được enable mặc định và PASS khi fraud-service chạy tại `http://localhost:3012`.
+- Nếu chạy bằng Docker Compose profile development theo lệnh khuyến nghị ở trên, case 17 sẽ không còn bị SKIP.
 
 ### Unit Tests
 ```bash

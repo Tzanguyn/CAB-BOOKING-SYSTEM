@@ -1,5 +1,28 @@
 const winston = require('winston');
 require('winston-daily-rotate-file');
+const fs = require('fs');
+const path = require('path');
+
+function resolveWritableLogDir() {
+  const candidates = [
+    path.resolve(process.cwd(), 'logs'),
+    '/tmp/ride-service-logs'
+  ];
+
+  for (const dir of candidates) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.accessSync(dir, fs.constants.W_OK);
+      return dir;
+    } catch {
+      // Try next candidate.
+    }
+  }
+
+  return '/tmp';
+}
+
+const logDir = resolveWritableLogDir();
 
 const logFormat = winston.format.combine(
   winston.format.timestamp(),
@@ -21,7 +44,7 @@ const logger = winston.createLogger({
     }),
     // File logging with rotation
     new winston.transports.DailyRotateFile({
-      filename: 'logs/ride-service-%DATE%.log',
+      filename: path.join(logDir, 'ride-service-%DATE%.log'),
       datePattern: 'YYYY-MM-DD',
       zippedArchive: true,
       maxSize: '20m',
@@ -29,7 +52,7 @@ const logger = winston.createLogger({
     }),
     // Error logs
     new winston.transports.File({
-      filename: 'logs/error.log',
+      filename: path.join(logDir, 'error.log'),
       level: 'error'
     })
   ]

@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const UserRepository = require('../repositories/userRepository');
 const { tokenUtils } = require('../config/redis');
+const { getScopesForRole } = require('../config/roleScopes');
 const { RabbitMQClient, EXCHANGES, EVENT_TYPES } = require('@cab-booking/shared');
 
 require('dotenv').config();
@@ -41,10 +42,14 @@ class AuthService {
 
     // Generate JWT tokens
     generateTokens(user) {
+        const scopes = getScopesForRole(user.role);
         const payload = {
+            sub: String(user.id),
             userId: user.id,
             email: user.email,
             role: user.role,
+            scopes,
+            permissions: scopes,
             // Zero Trust: Include device fingerprint and IP for additional verification
             deviceFingerprint: user.deviceFingerprint,
             iat: Math.floor(Date.now() / 1000)
@@ -69,7 +74,10 @@ class AuthService {
                 audience: 'cab-booking-system'
             });
         } catch (error) {
-            throw new Error('Invalid or expired token');
+            if (error.name === 'TokenExpiredError') {
+                throw new Error('Token expired');
+            }
+            throw new Error('Invalid token');
         }
     }
 
@@ -208,7 +216,8 @@ class AuthService {
                     firstName: user.firstName,
                     lastName: user.lastName,
                     role: user.role,
-                    isVerified: user.isVerified
+                    isVerified: user.isVerified,
+                    scopes: getScopesForRole(user.role)
                 },
                 tokens: {
                     accessToken,

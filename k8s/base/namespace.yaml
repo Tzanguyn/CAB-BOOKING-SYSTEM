@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cab-booking
+  labels:
+    app.kubernetes.io/name: cab-booking
+    app.kubernetes.io/part-of: cab-booking-system

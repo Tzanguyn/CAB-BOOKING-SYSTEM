@@ -1,6 +1,12 @@
 const express = require('express');
 const cors = require('cors');
 const amqp = require('amqplib');
+const {
+  createMetricsCollector,
+  createRequestContextMiddleware,
+  createSecurityHeadersMiddleware
+} = require('../../../shared/utils/observability');
+const { createSloMonitor } = require('../../../shared/utils/slo');
 
 // =====================
 // EVENT CONSTANTS
@@ -91,9 +97,19 @@ const errorHandler = require('./middlewares/errorHandler');
 // APP SETUP
 // =====================
 const app = express();
+const observability = createMetricsCollector({ serviceName: 'booking-service' });
+const sloMonitor = createSloMonitor({
+  serviceName: 'booking-service',
+  latencyThresholdMs: Number(process.env.BOOKING_SLO_P95_MS || 500),
+  successRateThreshold: Number(process.env.BOOKING_SLO_SUCCESS_RATE || 0.99)
+});
 
+app.use(createRequestContextMiddleware({ serviceName: 'booking-service' }));
+app.use(createSecurityHeadersMiddleware({ serviceName: 'booking-service' }));
+app.use(observability.middleware);
+app.use(sloMonitor.middleware);
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // =====================
@@ -103,9 +119,15 @@ app.get('/api/bookings/health', (req, res) => {
   res.json({
     service: 'booking-service',
     status: 'healthy',
+    requestId: req.requestId || null,
+    traceId: req.traceId || null,
+    sloHealthy: sloMonitor.snapshot().healthy,
     timestamp: new Date().toISOString()
   })
 })
+
+app.get('/metrics', observability.metricsHandler);
+app.get('/slo', sloMonitor.sloHandler);
 
 app.get('/health', (req, res) => {
   res.redirect('/api/bookings/health');

@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { app, rideService, rabbitmqService } = require('./src/app');
 const logger = require('./src/utils/logger');
+const Ride = require('./src/models/Ride');
 
 const PORT = process.env.PORT || 3009; // Đổi từ 3005 thành 3009
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/cab-booking-rides';
@@ -10,6 +11,20 @@ const connectDB = async () => {
   try {
     await mongoose.connect(MONGODB_URI);
     logger.info(`✅ MongoDB connected: ${mongoose.connection.host}`);
+
+    const ridesCollection = mongoose.connection.db.collection('rides');
+    const existingIndexes = await ridesCollection.indexes();
+    const legacyGeoIndexes = ['pickup.coordinates_2dsphere', 'destination.coordinates_2dsphere'];
+
+    for (const indexName of legacyGeoIndexes) {
+      if (existingIndexes.some((index) => index.name === indexName)) {
+        await ridesCollection.dropIndex(indexName);
+        logger.warn(`🧹 Dropped legacy geospatial index: ${indexName}`);
+      }
+    }
+
+    await Ride.syncIndexes();
+    logger.info('✅ Ride geospatial indexes are synchronized');
   } catch (error) {
     logger.error(`❌ MongoDB connection failed: ${error.message}`);
     process.exit(1);

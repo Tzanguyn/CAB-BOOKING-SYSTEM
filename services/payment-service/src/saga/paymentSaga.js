@@ -6,6 +6,9 @@
 const { v4: uuidv4 } = require('uuid');
 const amqp = require('amqplib');
 const Payment = require('../models/Payment');
+const { calculateExponentialBackoffDelay } = require('../../../../shared/utils/retryPolicy');
+
+let rabbitConnectAttempts = 0;
 
 class PaymentSaga {
   constructor(paymentId, rabbitMQClient) {
@@ -62,6 +65,7 @@ async function connectRabbitMQ() {
 
   try {
     const connection = await amqp.connect(RABBIT_URL);
+    rabbitConnectAttempts = 0;
     const channel = await connection.createChannel();
 
     await channel.assertExchange('booking-events', 'topic', { durable: true });
@@ -136,7 +140,15 @@ async function connectRabbitMQ() {
     });
   } catch (error) {
     console.error('❌ Lỗi kết nối RabbitMQ:', error.message);
-    setTimeout(connectRabbitMQ, 5000);
+    rabbitConnectAttempts += 1;
+    const reconnectDelayMs = calculateExponentialBackoffDelay(rabbitConnectAttempts, {
+      initialDelayMs: Number(process.env.PAYMENT_RABBIT_RECONNECT_INITIAL_MS || 2000),
+      maxDelayMs: Number(process.env.PAYMENT_RABBIT_RECONNECT_MAX_MS || 30000),
+      multiplier: Number(process.env.PAYMENT_RABBIT_RECONNECT_MULTIPLIER || 2),
+      jitterRatio: Number(process.env.PAYMENT_RABBIT_RECONNECT_JITTER_RATIO || 0.15)
+    });
+    console.warn(`↻ Retry RabbitMQ connection in ${reconnectDelayMs}ms (attempt ${rabbitConnectAttempts})`);
+    setTimeout(connectRabbitMQ, reconnectDelayMs);
   }
 }
 

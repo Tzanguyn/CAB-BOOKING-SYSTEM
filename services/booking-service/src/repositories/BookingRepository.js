@@ -73,6 +73,22 @@ class BookingRepository {
             throw new Error(`Error checking booking existence: ${error.message}`);
         }
     }
+
+    async findByCustomerAndIdempotencyKey(customerId, idempotencyKey) {
+        try {
+            return await Booking.findOne({ customerId, idempotencyKey });
+        } catch (error) {
+            throw new Error(`Error finding idempotent booking: ${error.message}`);
+        }
+    }
+
+    async deleteBookingById(bookingId) {
+        try {
+            return await Booking.findByIdAndDelete(bookingId);
+        } catch (error) {
+            throw new Error(`Error deleting booking: ${error.message}`);
+        }
+    }
 }
 
 module.exports = new BookingRepository();

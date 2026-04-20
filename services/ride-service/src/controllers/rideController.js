@@ -1,4 +1,3 @@
-const rideService = require('../services/rideService');
 const logger = require('../utils/logger');
 
 class RideController {
@@ -15,7 +14,7 @@ class RideController {
         });
       }
 
-      const result = await rideService.createRideRequest({
+      const result = await req.rideService.createRideRequest({
         ...rideData,
         userId
       });
@@ -43,7 +42,7 @@ class RideController {
       const { rideId } = req.params;
       const userId = req.user?.userId;
 
-      const ride = await rideService.getRideDetails(rideId, userId);
+      const ride = await req.rideService.getRideDetails(rideId, userId);
 
       res.json({
         success: true,
@@ -83,16 +82,16 @@ class RideController {
       
       switch (status) {
         case 'driver_assigned':
-          result = await rideService.assignDriverToRide(rideId, req.body.driverData);
+          result = await req.rideService.assignDriverToRide(rideId, req.body.driverData);
           break;
         case 'driver_arrived':
-          result = await rideService.updateDriverArrival(rideId, location);
+          result = await req.rideService.updateDriverArrival(rideId, location);
           break;
         case 'started':
-          result = await rideService.startRide(rideId, location);
+          result = await req.rideService.startRide(rideId, location);
           break;
         case 'completed':
-          result = await rideService.completeRide(rideId, req.body.completionData);
+          result = await req.rideService.completeRide(rideId, req.body.completionData);
           break;
         default:
           throw new Error(`Invalid status transition: ${status}`);
@@ -126,7 +125,7 @@ class RideController {
       const { reason, notes } = req.body;
       const cancelledBy = req.user?.role === 'driver' ? 'driver' : 'passenger';
 
-      const result = await rideService.cancelRide(rideId, {
+      const result = await req.rideService.cancelRide(rideId, {
         cancelledBy,
         reason,
         notes
@@ -155,7 +154,7 @@ class RideController {
       const { rideId } = req.params;
       const locationData = req.body;
 
-      const result = await rideService.updateRideLocation(rideId, locationData);
+      const result = await req.rideService.updateRideLocation(rideId, locationData);
 
       res.json({
         success: true,
@@ -214,7 +213,7 @@ class RideController {
     try {
       const { userId } = req.params;
 
-      const rides = await rideService.getActiveRidesForUser(userId);
+      const rides = await req.rideService.getActiveRidesForUser(userId);
 
       res.json({
         success: true,
@@ -240,7 +239,7 @@ class RideController {
       const skip = (page - 1) * limit;
       
       // Placeholder - implement actual database query
-      const history = await rideService.getRideHistory(userId, { skip, limit, startDate, endDate });
+      const history = await req.rideService.getRideHistory(userId, { skip, limit, startDate, endDate });
 
       res.json({
         success: true,
@@ -268,7 +267,7 @@ class RideController {
       const { status } = req.query;
 
       // Placeholder - implement actual database query
-      const rides = await rideService.getAssignedRidesForDriver(driverId, status);
+      const rides = await req.rideService.getAssignedRidesForDriver(driverId, status);
 
       res.json({
         success: true,
@@ -290,7 +289,7 @@ class RideController {
       const { rideId, driverId } = req.body;
 
       // This would trigger state machine transition
-      const result = await rideService.assignDriverToRide(rideId, {
+      const result = await req.rideService.assignDriverToRide(rideId, {
         driverId,
         ...req.body.driverDetails
       });
@@ -318,7 +317,7 @@ class RideController {
       const { rideId, driverId, reason } = req.body;
 
       // This would update search metadata
-      await rideService.rejectRide(rideId, driverId, reason);
+      await req.rideService.rejectRide(rideId, driverId, reason);
 
       logger.info('Driver rejected ride', { rideId, driverId, reason });
 
@@ -341,7 +340,7 @@ class RideController {
     try {
       const { startDate, endDate } = req.query;
 
-      const stats = await rideService.getRideStats(
+      const stats = await req.rideService.getRideStats(
         startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Default: last 30 days
         endDate ? new Date(endDate) : new Date()
       );
@@ -366,7 +365,7 @@ class RideController {
       const { query, status, startDate, endDate, page = 1, limit = 50 } = req.query;
 
       const skip = (page - 1) * limit;
-      const results = await rideService.searchRides({
+      const results = await req.rideService.searchRides({
         query,
         status,
         startDate,

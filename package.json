@@ -1,6 +1,37 @@
 {
+  "scripts": {
+    "smoke:level1": "node scripts/e2e-gateway-booking-pricing-rabbitmq.js",
+    "smoke:level2": "node scripts/level2-validation-edge-smoke.js",
+    "smoke:level3": "node scripts/level3-integration-smoke.js",
+    "smoke:level4": "node scripts/level4-transaction-smoke.js",
+    "smoke:level5": "node scripts/level5-ai-validation-smoke.js",
+    "smoke:level6": "node scripts/level6-agent-decision-smoke.js",
+    "smoke:level7": "node scripts/level7-performance-resilience-smoke.js",
+    "smoke:level8": "node scripts/level8-resilience-failure-smoke.js",
+    "smoke:level9": "node scripts/level9-security-smoke.js",
+    "smoke:level10": "node scripts/level10-security-authz-smoke.js",
+    "smoke:phase2": "node scripts/phase2-observability-slo-smoke.js",
+    "smoke:phase4": "node scripts/phase4-client-mesh-smoke.js",
+    "smoke:phase4:mesh-runtime": "node scripts/phase4-mesh-runtime-evidence.js",
+    "smoke:phase5": "node scripts/phase5-multi-region-ml-smoke.js",
+    "smoke:phase6": "node scripts/phase6-driver-admin-smoke.js",
+    "smoke:realtime": "node scripts/realtime-e2e-smoke.js",
+    "smoke:realtime:strict": "set STRICT_RIDE_SYNC=true&& node scripts/realtime-e2e-smoke.js",
+    "smoke:realtime:dry": "node scripts/realtime-e2e-smoke.js --dry-run",
+    "ml:train": "node scripts/ml/train-pricing-model.js",
+    "ml:register": "node scripts/ml/register-pricing-model.js",
+    "ci:ml": "node scripts/ci/validate-ml-lifecycle.js",
+    "openapi:generate:services": "node scripts/ci/generate-openapi-services.js",
+    "openapi:generate": "node scripts/ci/generate-openapi.js",
+    "openapi:validate": "node scripts/ci/validate-openapi.js",
+    "ci:openapi": "npm run openapi:generate && npm run openapi:validate",
+    "ci:compliance": "node scripts/ci/compliance-gate.js"
+  },
   "dependencies": {
+    "dotenv": "^17.2.3",
     "helmet": "^8.1.0",
-    "morgan": "^1.10.1"
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.1",
+    "socket.io-client": "^4.8.1"
   }
 }

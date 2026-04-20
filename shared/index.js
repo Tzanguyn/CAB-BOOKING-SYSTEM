@@ -6,6 +6,7 @@ const { RabbitMQClient, EVENT_TYPES, EXCHANGES, QUEUES } = require('./utils/rabb
 const { EVENT_TYPES: EventTypes, ROUTING_KEYS, EXCHANGES: ExchangeNames, QUEUES: QueueNames } = require('./constants/events');
 const responseHelper = require('./utils/responseHelper');
 const schemaHelpers = require('./utils/schemaHelpers');
+const observability = require('./utils/observability');
 
 module.exports = {
   RabbitMQClient,
@@ -14,5 +15,6 @@ module.exports = {
   EXCHANGES: { ...EXCHANGES, ...ExchangeNames },
   QUEUES: { ...QUEUES, ...QueueNames },
   responseHelper,
-  schemaHelpers
+  schemaHelpers,
+  ...observability
 };

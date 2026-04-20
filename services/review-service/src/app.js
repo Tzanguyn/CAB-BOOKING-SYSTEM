@@ -4,6 +4,10 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
 require('dotenv').config();
+const {
+  createRequestContextMiddleware,
+  createSecurityHeadersMiddleware
+} = require('../../../shared/utils/observability');
 
 // ─── Config & DB ─────────────────────────────────────────────────────────────
 const { connectMongoDB, disconnectMongoDB, checkMongoDBHealth } = require('./config/mongodb');
@@ -16,6 +20,11 @@ const app = express();
 const reviewController = new ReviewController();
 
 // ─── Middleware Stack ────────────────────────────────────────────────────────
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
+
+app.use(createRequestContextMiddleware({ serviceName: 'review-service' }));
+app.use(createSecurityHeadersMiddleware({ serviceName: 'review-service' }));
 
 // Security headers
 app.use(
@@ -42,8 +51,9 @@ app.use(
 );
 
 // Logging (dev: chi tiết, prod: ngắn gọn)
+morgan.token('request-id', (req) => req.requestId || '-');
 app.use(
-  morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev', {
+  morgan(process.env.NODE_ENV === 'production' ? 'combined' : ':method :url :status :response-time ms request-id=:request-id', {
     skip: () => process.env.NODE_ENV === 'test'
   })
 );
@@ -76,6 +86,8 @@ app.get('/api/reviews/health', async (req, res) => {
     const health = {
       service: 'review-service',
       status: mongoStatus.status === 'healthy' ? 'healthy' : 'degraded',
+      requestId: req.requestId || null,
+      traceId: req.traceId || null,
       timestamp: new Date().toISOString(),
       uptime: Math.round(process.uptime()),
       version: process.env.npm_package_version || '1.0.0',
@@ -100,6 +112,17 @@ app.get('/api/reviews/health', async (req, res) => {
 // ─── API Routes ──────────────────────────────────────────────────────────────
 app.use('/api/reviews', reviewRoutes);
 
+app.get('/metrics', (req, res) => {
+  res.json({
+    service: 'review-service',
+    requestId: req.requestId || null,
+    traceId: req.traceId || null,
+    status: 'available',
+    timestamp: new Date().toISOString(),
+    uptime: Math.round(process.uptime())
+  });
+});
+
 // ─── Root / Welcome ──────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
   res.json({
@@ -107,6 +130,8 @@ app.get('/', (req, res) => {
     version: process.env.npm_package_version || '1.0.0',
     description: 'API xử lý đánh giá tài xế, hành khách và chuyến đi',
     status: 'running',
+    requestId: req.requestId || null,
+    traceId: req.traceId || null,
     docs: {
       health: 'GET /api/reviews/health',
       swagger: '/api/reviews/docs' // nếu sau này thêm swagger

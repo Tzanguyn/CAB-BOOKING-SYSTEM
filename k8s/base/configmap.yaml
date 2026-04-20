@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cab-booking-config
+  namespace: cab-booking
+data:
+  NODE_ENV: production
+  AUTH_SERVICE_URL: http://auth-service:3004
+  BOOKING_SERVICE_URL: http://booking-service:3003
+  DRIVER_SERVICE_URL: http://driver-service:3007
+  RIDE_SERVICE_URL: http://ride-service:3009
+  PRICING_SERVICE_URL: http://pricing-service:3001
+  PAYMENT_SERVICE_URL: http://payment-service:3002
+  ETA_SERVICE_URL: http://eta-service:3011
+  NOTIFICATION_SERVICE_URL: http://notification-service:3008
+  REDIS_URL: redis://redis:6379
+  RABBITMQ_URL: amqp://cab_admin:cab123!@#@rabbitmq:5672/cab-booking

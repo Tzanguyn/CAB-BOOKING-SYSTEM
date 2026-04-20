@@ -1,5 +1,6 @@
 const express = require('express');
 const AuthController = require('../controllers/authController');
+const { authenticateToken } = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
@@ -16,14 +17,14 @@ authController.initialize().catch(err => {
 router.post('/register', authController.register);
 router.post('/login', authController.login);
 router.post('/refresh-token', authController.refreshToken);
-router.post('/logout', authController.logout);
+router.post('/logout', authenticateToken, authController.logout);
 
 router.post('/verify-email', authController.verifyEmail);
 router.post('/request-password-reset', authController.requestPasswordReset);
 router.post('/reset-password', authController.resetPassword);
 
-router.get('/profile', authController.getProfile);
-router.put('/profile', authController.updateProfile);
+router.get('/profile', authenticateToken, authController.getProfile);
+router.put('/profile', authenticateToken, authController.updateProfile);
 
 // 🔥 API Gateway gọi endpoint này
 router.post('/validate-token', authController.validateToken);

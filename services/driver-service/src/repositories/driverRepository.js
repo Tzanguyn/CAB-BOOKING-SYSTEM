@@ -28,7 +28,33 @@ if (REDIS_ENABLED) {
 class DriverRepository {
   /* ========== DRIVER PROFILE (POSTGRES) ========== */
 
+  async ensureDriversTable() {
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS drivers (
+        id SERIAL PRIMARY KEY,
+        driver_id VARCHAR(64) UNIQUE NOT NULL,
+        first_name VARCHAR(100) NOT NULL,
+        last_name VARCHAR(100) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        phone VARCHAR(32) UNIQUE NOT NULL,
+        date_of_birth DATE,
+        license_number VARCHAR(100) UNIQUE NOT NULL,
+        license_expiry_date DATE,
+        vehicle_make VARCHAR(100),
+        vehicle_model VARCHAR(100),
+        vehicle_year INTEGER,
+        vehicle_color VARCHAR(50),
+        license_plate VARCHAR(50) UNIQUE NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'offline',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+    `);
+  }
+
   async createDriver(driverData) {
+    await this.ensureDriversTable();
+
     const query = `
       INSERT INTO drivers (
         driver_id, first_name, last_name, email, phone,
@@ -66,6 +92,7 @@ class DriverRepository {
   }
 
   async getDriverById(driverId) {
+    await this.ensureDriversTable();
     const { rows } = await pgPool.query(
       'SELECT * FROM drivers WHERE driver_id = $1',
       [driverId]

@@ -11,22 +11,24 @@ RUN apk add --no-cache \
     redis \
     && rm -rf /var/cache/apk/*
 
-# Copy package files
-COPY package*.json ./
+# Copy package files from the service directory
+COPY services/driver-service/package*.json ./
 
-# Install dependencies
-RUN npm ci --omit=dev && npm cache clean --force
+# Install dependencies without the lockfile to avoid npm v10/v11 lock resolution issues in Docker
+RUN npm install --omit=dev --no-package-lock --no-audit --no-fund && npm cache clean --force
 
-# Copy source code
-COPY src/ ./src/
-COPY index.js ./
+# Copy source code from the repository root build context
+COPY services/driver-service/src/ ./src/
+COPY services/driver-service/index.js ./
+
+COPY shared/ /shared/
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
 
-# Change ownership of app directory
-RUN chown -R nextjs:nodejs /app
+# Change ownership of app directory and shared helpers
+RUN chown -R nextjs:nodejs /app /shared
 USER nextjs
 
 # Expose port

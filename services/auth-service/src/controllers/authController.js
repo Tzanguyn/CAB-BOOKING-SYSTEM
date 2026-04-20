@@ -313,15 +313,18 @@ class AuthController {
           userId: decoded.userId,
           email: decoded.email,
           role: decoded.role,
+          scopes: Array.isArray(decoded.scopes) ? decoded.scopes : [],
+          permissions: Array.isArray(decoded.permissions) ? decoded.permissions : (Array.isArray(decoded.scopes) ? decoded.scopes : []),
           deviceFingerprint: decoded.deviceFingerprint
         }
       });
 
     } catch (error) {
       console.error('Token validation error:', error);
+      const isExpired = String(error?.message || '').toLowerCase().includes('expired');
       res.status(401).json({
-        error: 'Invalid or expired token',
-        code: 'INVALID_TOKEN'
+        error: isExpired ? 'Token expired' : 'Invalid token',
+        code: isExpired ? 'TOKEN_EXPIRED' : 'INVALID_TOKEN'
       });
     }
   };

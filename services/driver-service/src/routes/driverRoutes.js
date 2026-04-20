@@ -23,4 +23,7 @@ router.put('/location/:driverId', controller.updateDriverLocation);
 /* NEARBY */
 router.get('/nearby', controller.findNearbyDrivers);
 
+/* AI RECOMMENDATION */
+router.get('/recommendations', controller.recommendDrivers);
+
 module.exports = router;

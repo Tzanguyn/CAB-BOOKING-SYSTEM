@@ -4,14 +4,53 @@ class BookingController {
     // POST /bookings - Tạo yêu cầu đặt xe
     async createBooking(req, res) {
         try {
-            const { customerId, pickupLocation, dropoffLocation, paymentMethod, notes } = req.body;
+            const {
+                customerId,
+                pickupLocation,
+                dropoffLocation,
+                paymentMethod,
+                notes,
+                autoAssign,
+                searchRadiusKm,
+                idempotency_key,
+                ...transactionOptions
+            } = req.body;
+            const idempotencyHeader = req.headers['idempotency-key'];
 
             const booking = await bookingService.createBookingRequest(customerId, {
                 pickupLocation,
                 dropoffLocation,
                 paymentMethod,
-                notes
+                notes,
+                autoAssign,
+                searchRadiusKm,
+                idempotencyKey: idempotencyHeader || idempotency_key,
+                ...transactionOptions
             });
+
+            if (booking.compensated) {
+                return res.status(200).json({
+                    success: true,
+                    message: 'Payment failed, booking cancelled',
+                    data: booking
+                });
+            }
+
+            if (booking.noDriversAvailable) {
+                return res.status(200).json({
+                    success: true,
+                    message: 'No drivers available',
+                    data: booking
+                });
+            }
+
+            if (booking._idempotentReplay) {
+                return res.status(200).json({
+                    success: true,
+                    message: 'Idempotent replay',
+                    data: booking
+                });
+            }
 
             res.status(201).json({
                 success: true,
@@ -46,6 +85,24 @@ class BookingController {
             });
         } catch (error) {
             res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    }
+
+    // GET /bookings/:id/context - Context cho MCP/AI Agent
+    async getMcpContext(req, res) {
+        try {
+            const { id } = req.params;
+            const context = await bookingService.getMcpContext(id);
+
+            return res.status(200).json({
+                success: true,
+                data: context
+            });
+        } catch (error) {
+            return res.status(400).json({
                 success: false,
                 message: error.message
             });

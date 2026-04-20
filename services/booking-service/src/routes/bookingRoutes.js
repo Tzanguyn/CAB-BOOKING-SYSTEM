@@ -1,6 +1,6 @@
 const express = require('express');
-const BookingController = require('../controllers/BookingController');
-const { authenticateToken } = require('../middlewares/auth.middleware');
+const bookingController = require('../controllers/BookingController');
+const authenticateToken = require('../middlewares/auth.middleware');
 const {
   validateBookingCreate,
   validateBookingConfirm,
@@ -9,7 +9,6 @@ const {
 } = require('../middlewares/validation.middleware');
 
 const router = express.Router();
-const bookingController = new BookingController();
 
 /**
  * =========================
@@ -30,6 +29,13 @@ router.get(
   '/:id',
   authenticateToken,
   bookingController.getBooking.bind(bookingController)
+);
+
+// ✅ Lấy context cho AI agent/MCP
+router.get(
+  '/:id/context',
+  authenticateToken,
+  bookingController.getMcpContext.bind(bookingController)
 );
 
 // ✅ Lấy tất cả booking của customer

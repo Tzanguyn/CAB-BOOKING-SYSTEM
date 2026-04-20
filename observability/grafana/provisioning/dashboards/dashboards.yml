@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: CAB Booking Dashboards
+    orgId: 1
+    folder: CAB Booking
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

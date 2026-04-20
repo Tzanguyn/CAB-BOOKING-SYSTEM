@@ -1,0 +1,92 @@
+version: '3.9'
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: cab-booking-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - '9090:9090'
+    networks:
+      - cab-observability
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    container_name: cab-booking-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASS:-admin123}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - '3001:3000'
+    depends_on:
+      - prometheus
+    networks:
+      - cab-observability
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.62
+    container_name: cab-booking-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: 'true'
+    ports:
+      - '16686:16686'
+      - '4317:4317'
+      - '4318:4318'
+    networks:
+      - cab-observability
+
+  opensearch:
+    image: opensearchproject/opensearch:2.19.0
+    container_name: cab-booking-opensearch
+    environment:
+      discovery.type: single-node
+      bootstrap.memory_lock: 'true'
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+      plugins.security.disabled: 'true'
+      DISABLE_INSTALL_DEMO_CONFIG: 'true'
+      DISABLE_SECURITY_PLUGIN: 'true'
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${OPENSEARCH_INITIAL_ADMIN_PASSWORD:-admin123!}
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - '9200:9200'
+      - '9600:9600'
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    networks:
+      - cab-observability
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.19.0
+    container_name: cab-booking-opensearch-dashboards
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: 'true'
+    ports:
+      - '5601:5601'
+    depends_on:
+      - opensearch
+    networks:
+      - cab-observability
+
+networks:
+  cab-observability:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  opensearch_data:

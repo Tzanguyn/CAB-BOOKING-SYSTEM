@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: cab-booking
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secrets.example.yaml
+  - ../security/network-policy-default-deny.yaml
+  - ../security/network-policy-allow-gateway.yaml
+  - ../security/peer-authentication-mtls.yaml
+  - ../security/authorization-policy.yaml
+  - redis-deployment.yaml
+  - rabbitmq-deployment.yaml
+  - auth-service-deployment.yaml
+  - auth-service-service.yaml
+  - booking-service-deployment.yaml
+  - booking-service-service.yaml
+  - ride-service-deployment.yaml
+  - ride-service-service.yaml
+  - realtime-socket-deployment.yaml
+  - realtime-socket-service.yaml
+  - api-gateway-deployment.yaml
+  - api-gateway-service.yaml
+  - api-gateway-hpa.yaml
+  - booking-service-hpa.yaml
+  - realtime-socket-hpa.yaml
+  - ingress.yaml

@@ -9,22 +9,25 @@ RUN apk add --no-cache \
     curl \
     && rm -rf /var/cache/apk/*
 
-# Copy package files
-COPY package*.json ./
+# Copy shared utilities used by observability/SLO middleware
+COPY shared/ /shared/
+
+# Copy package files from service directory
+COPY api-gateway/package*.json ./
 
 # Install dependencies
 RUN npm install --only=production && npm cache clean --force
 
-# Copy source code
-COPY src/ ./src/
-COPY index.js ./
+# Copy source code from repo root build context
+COPY api-gateway/src/ ./src/
+COPY api-gateway/index.js ./
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
 
 # Change ownership of app directory
-RUN chown -R nextjs:nodejs /app
+RUN chown -R nextjs:nodejs /app /shared
 USER nextjs
 
 # Expose port

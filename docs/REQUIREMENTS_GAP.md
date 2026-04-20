@@ -1,115 +1,174 @@
-# CAB Booking System — Requirements Gap (from PDF)
+# CAB Booking System - Requirements Gap (from PDF)
 
-Nguồn yêu cầu: [docs/CAB-BOOKING-SYSTEM.extracted.txt](CAB-BOOKING-SYSTEM.extracted.txt)
+Nguon yeu cau: [docs/CAB-BOOKING-SYSTEM.extracted.txt](CAB-BOOKING-SYSTEM.extracted.txt)
 
 Legend:
-- ✅ Done: đã có end-to-end (API + integration)
-- 🟡 Partial: có code nhưng chưa wired / còn placeholder
-- ❌ Missing: chưa có hoặc chỉ là stub
+- [DONE]: da co implementation end-to-end (API + integration)
+- [PARTIAL]: da co mot phan, nhung chua full production-grade
+- [GAP]: chua co hoac moi o muc y tuong
 
 ## 1) Security / Zero Trust
-**PDF yêu cầu** (client/edge + gateway + nội bộ): TLS/WAF/rate limit, gateway là PEP (JWT/OAuth2 + role/scope/permission + schema validation), service-to-service mTLS qua service mesh, RBAC + ABAC.  
-Bằng chứng: [Gateway/Edge/mTLS/RBAC/ABAC](CAB-BOOKING-SYSTEM.extracted.txt#L160-L226)
+PDF yeu cau: TLS/WAF/rate limit o edge, gateway la PEP (JWT/OAuth2 + role/scope/permission + schema validation), service-to-service mTLS qua service mesh, RBAC + ABAC.
 
-**Repo hiện trạng**
-- 🟡 API Gateway có JWT validation qua Auth Service (middleware gọi `/auth/validate-token`) nhưng chưa enforce permission/scope và chưa có request schema validation.
-  - Gateway routes + auth middleware: [api-gateway/src/app.js](../api-gateway/src/app.js#L1-L131), [api-gateway/src/middlewares/auth.middleware.js](../api-gateway/src/middlewares/auth.middleware.js)
-- 🟡 Rate limit: dependency có nhưng chưa apply tại gateway.
-  - Dependency: [api-gateway/package.json](../api-gateway/package.json#L1-L40)
-- ❌ WAF/TLS1.3/mTLS/service-mesh: chưa có cấu hình triển khai trong docker-compose / k8s manifests.
-- 🟡 RBAC trong 1 số service có nhắc tới role (vd ride-service, review-service) nhưng ABAC theo ngữ cảnh (vd “driver chỉ update GPS khi ride ACTIVE”) chưa có flow GPS update để enforce.
+Repo hien trang:
+- [DONE] Gateway co JWT validation, rate limit, helmet, route-level schema validation (auth/register-login, booking create, payment create/confirm), role checks, va self-or-admin ABAC-like checks.
+  - [api-gateway/src/app.js](../api-gateway/src/app.js)
+- [DONE] Gateway da co scope-based permission middleware (opt-in qua `ENFORCE_GATEWAY_SCOPES=true`) de enforce theo namespace `users/bookings/payments/...`.
+  - [api-gateway/src/app.js](../api-gateway/src/app.js)
+- [DONE] RBAC middleware da co trong auth-service va da duoc ap vao profile/logout routes.
+  - [services/auth-service/src/middlewares/authMiddleware.js](../services/auth-service/src/middlewares/authMiddleware.js)
+  - [services/auth-service/src/routes/authRoutes.js](../services/auth-service/src/routes/authRoutes.js)
+- [PARTIAL] mTLS/network-policy/authorization manifests da co va da duoc include vao base kustomization, va ingress da duoc harden them voi TLS/HSTS/ModSecurity annotations.
+  - [k8s/base/kustomization.yaml](../k8s/base/kustomization.yaml)
+  - [k8s/security/peer-authentication-mtls.yaml](../k8s/security/peer-authentication-mtls.yaml)
+  - [k8s/security/authorization-policy.yaml](../k8s/security/authorization-policy.yaml)
+- [PARTIAL] **PHASE 4 (Apr 2026)**: da co smoke check cho mesh/security posture (artifact + runtime endpoint) va cluster-runtime verification theo che do optional.
+  - [scripts/phase4-client-mesh-smoke.js](../scripts/phase4-client-mesh-smoke.js)
+- [GAP] Chua co bang chung runtime service-mesh control plane enforcement tren cluster that (kubectl/mesh control-plane canh tranh truong local).
+- [PARTIAL] Edge enforcement da co NGINX TLS/HSTS/OWASP CRS annotations, nhung WAF/mesh control plane and production cert management van can cluster-level rollout.
 
-## 2) Real-time GPS Update (Driver → Passenger)
-**PDF yêu cầu**: driver gửi GPS qua WebSocket, Ride Service cập nhật Redis Geo index, publish event, passenger nhận <1s latency.  
-Bằng chứng: [Real-time GPS Update](CAB-BOOKING-SYSTEM.extracted.txt#L388-L409)
+## 2) Real-time GPS Update (Driver -> Passenger)
+PDF yeu cau: driver gui GPS qua WebSocket, Ride Service cap nhat Redis Geo index, publish event, passenger nhan <1s latency.
 
-**Repo hiện trạng**
-- ❌ Socket server đang chỉ là Express healthcheck, chưa khởi tạo Socket.IO/WebSocket.
-  - [realtime/socket-server/src/index.js](../realtime/socket-server/src/index.js#L1-L25)
-- 🟡 Có module GPS tracker khá đầy đủ (Redis GEO + broadcast), nhưng chưa được wired vào server entrypoint.
+Repo hien trang:
+- [DONE] Socket.IO flow da wired: join/leave ride room, driver location update, ride broadcast.
+  - [realtime/socket-server/src/index.js](../realtime/socket-server/src/index.js)
+- [DONE] GPS tracker da co Redis Geo lookup va route history.
   - [realtime/socket-server/src/gpsTracker.js](../realtime/socket-server/src/gpsTracker.js)
-- ❌ Ride Service chưa cập nhật Redis Geo index / publish event từ GPS update.
+- [DONE] Strict realtime smoke da pass.
+  - [scripts/realtime-e2e-smoke.js](../scripts/realtime-e2e-smoke.js)
+- [PARTIAL] Chua co bo SLO benchmark formal de chung minh latency SLA trong production traffic dai han.
 
 ## 3) AI Driver Matching
-**PDF yêu cầu**: Redis Geo lọc hard constraint + AI matching service (soft constraints/scoring), publish qua Kafka, fallback rule-based khi AI lỗi.  
-Bằng chứng: [AI Driver Matching](CAB-BOOKING-SYSTEM.extracted.txt#L410-L429)
+PDF yeu cau: Redis Geo hard filter + AI matching service soft scoring, publish qua Kafka, fallback rule-based.
 
-**Repo hiện trạng**
-- ❌ Không có AI matching service chạy thực tế; ride-service hiện nhận driver assignment “được đưa vào sẵn”, chưa có pipeline tìm/đề xuất tài xế.
-- ❌ Kafka integration không thấy được sử dụng trong codebase.
+Repo hien trang:
+- [DONE] Da co matching service rieng va da duoc wiring vao booking flow + gateway.
+  - [services/matching-service/src/app.js](../services/matching-service/src/app.js)
+  - [services/booking-service/src/services/BookingService.js](../services/booking-service/src/services/BookingService.js)
+  - [api-gateway/src/app.js](../api-gateway/src/app.js)
+- [DONE] Da co fallback recommendation path khi matching/pricing/driver unavailable.
+- [DONE] **PHASE 1 (Apr 2026)**: Refactor HTTP → Event-driven Kafka/RabbitMQ pipeline:
+  - Booking publishes matching.request event (async, with timeout)
+  - Matching service consumer processes requests and publishes matching.response
+  - Timeout fallback to HTTP + rule-based matching (dual-mode)
+  - Event-driven path uses bulkhead pattern to limit load
+  - Comprehensive DLQ handling for failed requests
+  - Files: [services/matching-service/src/consumers/matchingConsumer.js](../services/matching-service/src/consumers/matchingConsumer.js)
+  - Feature flag: USE_EVENT_DRIVEN_MATCHING (can disable and revert to HTTP-only)
+- [DONE] **PHASE 5 (Apr 2026)**: ML lifecycle baseline da co cho pricing model (train/register/validate + artifact registry).
+  - [scripts/ml/train-pricing-model.js](../scripts/ml/train-pricing-model.js)
+  - [scripts/ml/register-pricing-model.js](../scripts/ml/register-pricing-model.js)
+  - [scripts/ci/validate-ml-lifecycle.js](../scripts/ci/validate-ml-lifecycle.js)
+  - [models/pricing/registry.json](../models/pricing/registry.json)
 
 ## 4) Pricing / Surge pricing
-**PDF yêu cầu**: surge pricing (AI) + xử lý failure (fallback rule, price snapshot theo booking).  
-Bằng chứng: [Pricing failure cases](CAB-BOOKING-SYSTEM.extracted.txt#L850-L876)
+PDF yeu cau: surge pricing (AI) + failure handling (fallback rule, price snapshot theo booking).
 
-**Repo hiện trạng**
-- ❌ Pricing API đang là placeholder trả baseFare cố định.
-  - [services/pricing-service/src/app.js](../services/pricing-service/src/app.js#L1-L49)
-- 🟡 Có AI pricing engine code (ml-regression) nhưng chưa được dùng bởi endpoint.
+Repo hien trang:
+- [DONE] Endpoint estimate da su dung pricing engine, co fallback khi model loi.
+  - [services/pricing-service/src/app.js](../services/pricing-service/src/app.js)
   - [services/pricing-service/src/ai/pricingEngine.js](../services/pricing-service/src/ai/pricingEngine.js)
+- [DONE] Booking luu du lieu snapshot nhu estimatedFare/surge/etaMinutes.
+  - [services/booking-service/src/models/Booking.js](../services/booking-service/src/models/Booking.js)
+- [PARTIAL] Chua co versioned snapshot contract day du cho toan bo pricing context nhu production-grade ML governance.
 
 ## 5) Payment (Saga + Retry/Backoff + Idempotency)
-**PDF yêu cầu**: retry + exponential backoff, payment là source-of-truth, saga choreography event-driven, tránh double-charge, idempotency key cho duplicate/retry.  
-Bằng chứng: [Payment retry/backoff](CAB-BOOKING-SYSTEM.extracted.txt#L430-L450), [Failure scenarios: idempotency/double charge](CAB-BOOKING-SYSTEM.extracted.txt#L850-L909)
+PDF yeu cau: retry + exponential backoff, payment source-of-truth, saga choreography event-driven, idempotency key tranh double-charge.
 
-**Repo hiện trạng**
-- 🟡 Có saga choreography dựa RabbitMQ consume `booking.created`, có upsert theo `rideId` để tránh duplicate message.
+Repo hien trang:
+- [DONE] Da co customer-facing payment APIs, idempotency key handling, confirm endpoint.
+  - [services/payment-service/src/app.js](../services/payment-service/src/app.js)
+- [DONE] Saga consumer da co va xu ly duplicate theo rideId.
   - [services/payment-service/src/saga/paymentSaga.js](../services/payment-service/src/saga/paymentSaga.js)
-- 🟡 Retry trong model có (nextRetryAt), nhưng chưa thấy exponential backoff “đúng nghĩa” end-to-end, và chưa có idempotency key ở HTTP layer.
-- 🟡 HTTP API payment hiện chủ yếu là route test (`/test-order`) + get by paymentId; chưa có API contract đầy đủ cho customer app.
-  - [services/payment-service/src/app.js](../services/payment-service/src/app.js#L1-L120)
+- [DONE] **PHASE 3 (Apr 2026)**: Exponential backoff + jitter da duoc harden tren cac payment path quan trong:
+  - Booking -> Payment init retry voi retryable-error classifier va backoff policy.
+  - Payment model retry scheduling da chuyen sang exponential backoff config-driven.
+  - Payment saga RabbitMQ reconnect da su dung exponential backoff + jitter.
+  - Files: [shared/utils/retryPolicy.js](../shared/utils/retryPolicy.js), [services/booking-service/src/services/BookingService.js](../services/booking-service/src/services/BookingService.js), [services/payment-service/src/models/Payment.js](../services/payment-service/src/models/Payment.js), [services/payment-service/src/saga/paymentSaga.js](../services/payment-service/src/saga/paymentSaga.js)
 
 ## 6) Resilience / Failure handling patterns
-**PDF yêu cầu**: circuit breaker, retry/timeout, graceful degradation, bulkhead, idempotency…  
-Bằng chứng: [Resilience patterns](CAB-BOOKING-SYSTEM.extracted.txt#L250-L307), [Failure handling patterns](CAB-BOOKING-SYSTEM.extracted.txt#L900-L909)
+PDF yeu cau: circuit breaker, retry/timeout, graceful degradation, bulkhead, idempotency.
 
-**Repo hiện trạng**
-- 🟡 Có code ServiceRouter/circuit breaker trong gateway nhưng không được dùng trong app routing hiện tại.
+Repo hien trang:
+- [DONE] Retry/fallback/compensation/idempotency da co trong booking-pricing-payment path.
+  - [services/booking-service/src/services/BookingService.js](../services/booking-service/src/services/BookingService.js)
+- [DONE] Circuit breaker code co trong gateway router va da expand toan platform.
   - [api-gateway/src/serviceRouter.js](../api-gateway/src/serviceRouter.js)
-- ❌ Chưa có DLQ/poison-message handling rõ ràng; retries/backoff chủ yếu là đơn lẻ.
+- [DONE] **PHASE 1 (Apr 2026)**: Bulkhead pattern + DLQ/poison-message policy production-grade da duoc implement:
+  - Bulkhead middleware: concurrency limiting, queue management, timeout protection
+  - DLQ manager: exponential backoff retry, poison message detection (3+ failures)
+  - Event-driven matching: request/response correlation with timeout fallback to HTTP
+  - Files: [shared/middleware/bulkhead.js](../shared/middleware/bulkhead.js), [shared/utils/dlqManager.js](../shared/utils/dlqManager.js), [services/booking-service/src/utils/eventDrivenMatcher.js](../services/booking-service/src/utils/eventDrivenMatcher.js), [services/matching-service/src/consumers/matchingConsumer.js](../services/matching-service/src/consumers/matchingConsumer.js)
+  - Integration test: [scripts/level4-event-driven-matching.js](../scripts/level4-event-driven-matching.js)
+  - Metrics: queue_depth, active_requests, timeouts, poison_messages
+  - Feature flags: USE_EVENT_DRIVEN_MATCHING, MATCHING_TIMEOUT_MS
 
 ## 7) OpenAPI (FULL all services)
-**PDF yêu cầu**: OpenAPI 3.0 YAML đầy đủ tất cả services, import được Swagger/Postman.  
-Bằng chứng: [Phụ lục OpenAPI FULL](CAB-BOOKING-SYSTEM.extracted.txt#L1118-L1124)
+PDF yeu cau: OpenAPI 3.0 full cho all services + import Swagger/Postman.
 
-**Repo hiện trạng**
-- 🟡 Chỉ thấy review-service có OpenAPI yaml.
-  - [services/review-service/docs/api-spec.yaml](../services/review-service/docs/api-spec.yaml)
-- ❌ Chưa có OpenAPI cho auth/user/driver/booking/ride/payment/pricing/notification + chưa có swagger UI/aggregation ở gateway.
+Repo hien trang:
+- [DONE] Da co aggregated OpenAPI snapshot va docs route tren gateway.
+  - [docs/openapi/openapi.json](../docs/openapi/openapi.json)
+  - [api-gateway/src/app.js](../api-gateway/src/app.js)
+- [DONE] **PHASE 3 (Apr 2026)**: Da co generated-per-service OpenAPI tu source code + CI drift check:
+  - Generate per-service specs: [scripts/ci/generate-openapi-services.js](../scripts/ci/generate-openapi-services.js)
+  - Aggregate metadata source docs + generated artifact: [scripts/ci/generate-openapi.js](../scripts/ci/generate-openapi.js)
+  - Validate source-document drift trong CI: [scripts/ci/validate-openapi.js](../scripts/ci/validate-openapi.js)
+  - CI integration: [.github/workflows/ci.yml](../.github/workflows/ci.yml), [package.json](../package.json)
 
 ## 8) Observability (metrics/logs/tracing)
-**PDF yêu cầu**: Prometheus+Grafana, ELK/OpenSearch, Jaeger tracing…  
-Bằng chứng: [Observability stack](CAB-BOOKING-SYSTEM.extracted.txt#L980-L1010)
+PDF yeu cau: Prometheus + Grafana, ELK/OpenSearch, Jaeger tracing.
 
-**Repo hiện trạng**
-- ❌ docker-compose chưa có Prometheus/Grafana/ELK/Jaeger.
-- 🟡 Có morgan logging rải rác, nhưng chưa có centralized logging/tracing.
+Repo hien trang:
+- [DONE] Da co observability compose baseline: Prometheus, Grafana, Jaeger, OpenSearch, OpenSearch Dashboards.
+  - [observability/docker-compose.yml](../observability/docker-compose.yml)
+- [DONE] Da co gateway metrics endpoint va scrape config.
+  - [api-gateway/src/app.js](../api-gateway/src/app.js)
+  - [observability/prometheus/prometheus.yml](../observability/prometheus/prometheus.yml)
+- [PARTIAL] Da co request-id, trace-id propagation, security headers, metrics endpoint, `/slo` endpoint va observability middleware baseline tren gateway/matching/booking/pricing/eta/review/user/driver/payment/auth/fraud services, nhung full Jaeger span standardization va runtime verification tren cluster van chua dong bo.
+- [PARTIAL] Da co Phase 2 smoke script de verify trace metadata + p95/success-rate, va da expose command chay local `npm run smoke:phase2`; van can services dang chay de chot runtime validation.
+  - [scripts/phase2-observability-slo-smoke.js](../scripts/phase2-observability-slo-smoke.js)
+  - [package.json](../package.json)
 
 ## 9) CI/CD + Cloud-native deployment
-**PDF yêu cầu**: cloud-native Docker + orchestration + CI/CD (GitHub Actions).  
-Bằng chứng: [Mục tiêu cloud-native](CAB-BOOKING-SYSTEM.extracted.txt#L70-L96), [DevOps stack](CAB-BOOKING-SYSTEM.extracted.txt#L980-L999)
+PDF yeu cau: cloud-native Docker + orchestration + CI/CD.
 
-**Repo hiện trạng**
-- ✅ Docker Compose có.
-- ❌ Không thấy GitHub Actions workflows.
-- ❌ Không có Kubernetes manifests/Helm/Terraform.
+Repo hien trang:
+- [DONE] Docker Compose baseline co.
+- [DONE] GitHub Actions workflow co.
+  - [.github/workflows/ci.yml](../.github/workflows/ci.yml)
+- [DONE] Kubernetes manifests + HPA + kustomize co.
+  - [k8s/base/kustomization.yaml](../k8s/base/kustomization.yaml)
+- [DONE] Terraform baseline co.
+  - [infra/terraform/main.tf](../infra/terraform/main.tf)
+- [DONE] **PHASE 5 (Apr 2026)**: Multi-region baseline da co (global routing profile + failover runbook generation).
+  - [infra/terraform/multi-region/main.tf](../infra/terraform/multi-region/main.tf)
+  - [infra/terraform/multi-region/variables.tf](../infra/terraform/multi-region/variables.tf)
+  - [infra/terraform/multi-region/outputs.tf](../infra/terraform/multi-region/outputs.tf)
 
 ## 10) Clients (Customer / Driver / Admin)
-**PDF yêu cầu**: RBAC roles Customer/Driver/Admin; luồng driver/passenger/admin tương ứng.
+PDF yeu cau: role flows cho Customer/Driver/Admin.
 
-**Repo hiện trạng**
-- ✅ Customer app có.
-- ❌ Driver app và admin dashboard folders đang trống.
-  - [clients/driver-app](../clients/driver-app)
-  - [clients/admin-dashboard](../clients/admin-dashboard)
+Repo hien trang:
+- [DONE] Customer app co.
+- [DONE] **PHASE 4 (Apr 2026)**: Driver operations workflow da duoc mo rong (status/location/update + accept/start/complete/cancel booking + realtime room controls).
+  - [clients/driver-app/index.html](../clients/driver-app/index.html)
+- [DONE] **PHASE 4 (Apr 2026)**: Admin control room da co service health matrix, telemetry snapshot, alerts va mesh posture quick-check.
+  - [clients/admin-dashboard/index.html](../clients/admin-dashboard/index.html)
+- [PARTIAL] Driver/Admin da co workflow van hanh cot loi, nhung chua day du nghiep vu enterprise (KYC/earning/fleet governance/tenant).
 
 ---
 
-## Suggested priority order (practical)
-1) Wire real-time socket server + GPS flow end-to-end (socket-server + ride-service + redis + gateway route)
-2) Hoàn thiện pricing `/estimate` dùng pricingEngine + “price snapshot theo booking”
-3) Hoàn thiện payment HTTP API + idempotency key + retry/backoff logic
-4) Add gateway rate limiting + request schema validation + role enforcement
-5) OpenAPI cho toàn bộ services + swagger UI
-6) Observability stack (Prometheus/Grafana + centralized logging)
-7) CI/CD workflows
+## Current verification snapshot
+- [DONE] smoke:level1 da pass.
+- [DONE] smoke:realtime:strict da pass.
+- [DONE] smoke:phase2 da pass (observability + SLO runtime local validation).
+- [DONE] smoke:phase5 da pass (multi-region artifact + ml lifecycle execution).
+- [DONE] Matrix smoke/CI gan nhat da xanh toan bo trong local validation run.
+
+## Suggested next priority
+1. Hoan thien runtime mesh + WAF/TLS edge enforcement (de dong Security gap con lai).
+2. Nang cap observability instrumentation cho tung service (metrics/traces/log schema).
+3. Hoan thien enterprise workflows cho driver/admin (KYC, earnings, moderation, fleet policy).
+4. Mo rong ML lifecycle sang matching/fraud/eta va bo sung online monitoring.

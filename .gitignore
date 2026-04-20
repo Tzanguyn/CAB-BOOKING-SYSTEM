@@ -55,3 +55,17 @@ coverage/
 .cache/
 .eslintcache
 .stylelintcache
+
+# --- Generated Artifacts (Không cần push) ---
+docs/PHASE1_*_SUMMARY.md
+docs/PHASE1_*_PLAN.md
+docs/openapi/openapi.generated.json
+docs/openapi/services/*.generated.json
+docs/evidence/
+models/pricing/candidate-model.json
+models/pricing/registry.json
+models/pricing/production-model.json
+infra/terraform/**/.terraform/
+infra/terraform/**/*.tfstate
+infra/terraform/**/*.tfstate.*
+infra/terraform/**/generated/

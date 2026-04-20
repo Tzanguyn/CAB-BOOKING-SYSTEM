@@ -1,13 +1,9 @@
 const express = require('express');
 const UserController = require('../controllers/userController');
-// Temporarily disable auth middleware imports
-// const {
-//   authenticateToken,
-//   requireUser,
-//   rateLimit,
-//   securityHeaders,
-//   requestLogger
-// } = require('../../../auth-service/src/middlewares/authMiddleware');
+const {
+  createRequestContextMiddleware,
+  createSecurityHeadersMiddleware
+} = require('../../../../shared/utils/observability');
 
 // Simple middleware implementations
 // Test middleware: Get userId from header or query param for testing
@@ -23,9 +19,36 @@ const authenticateToken = (req, res, next) => {
 };
 
 const requireUser = (req, res, next) => next(); // Skip user check for now
-const rateLimit = () => (req, res, next) => next(); // Skip rate limiting for now
-const securityHeaders = (req, res, next) => next(); // Skip security headers for now
-const requestLogger = (req, res, next) => next(); // Skip logging for now
+const securityHeaders = createSecurityHeadersMiddleware({ serviceName: 'user-service' });
+const requestLogger = createRequestContextMiddleware({ serviceName: 'user-service' });
+
+function rateLimit(maxRequests, windowMs) {
+  const buckets = new Map();
+
+  return (req, res, next) => {
+    const key = req.user?.userId || req.headers['x-user-id'] || req.ip;
+    const now = Date.now();
+    const history = buckets.get(key) || [];
+    const windowStart = now - windowMs;
+    const recentRequests = history.filter((timestamp) => timestamp >= windowStart);
+
+    if (recentRequests.length >= maxRequests) {
+      return res.status(429).json({
+        success: false,
+        message: 'Bạn đang gửi quá nhiều yêu cầu. Vui lòng thử lại sau.',
+        code: 'RATE_LIMIT_EXCEEDED'
+      });
+    }
+
+    recentRequests.push(now);
+    buckets.set(key, recentRequests);
+
+    res.setHeader('X-RateLimit-Limit', String(maxRequests));
+    res.setHeader('X-RateLimit-Remaining', String(Math.max(0, maxRequests - recentRequests.length)));
+
+    next();
+  };
+}
 
 const router = express.Router();
 const userController = new UserController();

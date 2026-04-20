@@ -1,4 +1,11 @@
-const { SimpleLinearRegression, PolynomialRegression } = require('ml-regression');
+let SimpleLinearRegression = null;
+let PolynomialRegression = null;
+
+try {
+  ({ SimpleLinearRegression, PolynomialRegression } = require('ml-regression'));
+} catch (error) {
+  console.warn('ml-regression unavailable, using heuristic fallback pricing:', error.message);
+}
 
 /**
  * AI-based Dynamic Pricing Engine

@@ -1,10 +1,14 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
+const {
+    createRequestContextMiddleware,
+    createSecurityHeadersMiddleware,
+    createMetricsCollector
+} = require('../../../shared/utils/observability');
 
 // Import configurations
-const { sequelize } = require('./config/database');
-const { connectDB } = require('./config/database');
+const { sequelize, connectDB } = require('./config/database');
 const { connectRedis } = require('./config/redis');
 
 // Import models (to ensure tables are created) - MUST be before routes
@@ -18,23 +22,32 @@ const AuthEvents = require('./events/authEvents');
 const AuthService = require('./services/authService');
 
 const app = express();
+const observability = createMetricsCollector({ serviceName: 'auth-service' });
 
 // Initialize services
 let authEvents;
 
 // --- Middleware ---
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
+app.use(createRequestContextMiddleware({ serviceName: 'auth-service' }));
+app.use(createSecurityHeadersMiddleware({ serviceName: 'auth-service' }));
+app.use(observability.middleware);
 app.use(cors({
     origin: process.env.CORS_ORIGIN || '*',
     credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.get('/metrics', observability.metricsHandler);
 
 // --- Health Check ---
 app.get('/', (req, res) => {
     res.json({
         service: 'auth-service',
         status: 'running',
+        requestId: req.requestId || null,
+        traceId: req.traceId || null,
         timestamp: new Date().toISOString(),
         version: '1.0.0',
         environment: process.env.NODE_ENV || 'development'

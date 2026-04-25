@@ -61,6 +61,9 @@ const bookingSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-bookingSchema.index({ customerId: 1, idempotencyKey: 1 }, { unique: true, sparse: true });
+bookingSchema.index(
+    { customerId: 1, idempotencyKey: 1 },
+    { unique: true, partialFilterExpression: { idempotencyKey: { $type: 'string' } } }
+);
 
 module.exports = mongoose.model('Booking', bookingSchema);

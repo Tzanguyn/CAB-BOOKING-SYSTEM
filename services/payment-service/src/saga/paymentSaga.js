@@ -6,7 +6,7 @@
 const { v4: uuidv4 } = require('uuid');
 const amqp = require('amqplib');
 const Payment = require('../models/Payment');
-const { calculateExponentialBackoffDelay } = require('../../../../shared/utils/retryPolicy');
+const { calculateExponentialBackoffDelay } = require('../utils/retryPolicy');
 
 let rabbitConnectAttempts = 0;
 

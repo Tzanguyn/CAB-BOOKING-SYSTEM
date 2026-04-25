@@ -13,7 +13,7 @@ const gpsTracker = new GPSTracker();
 let io = null;
 
 const config = {
-	corsOrigin: process.env.CORS_ORIGIN || '*',
+	corsOrigin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : '*',
 	rideServiceUrl: process.env.RIDE_SERVICE_URL || 'http://ride-service:3009',
 	jwtSecret: process.env.JWT_SECRET || 'your-secret-key-here',
 	authRequired: String(process.env.SOCKET_AUTH_REQUIRED || 'false').toLowerCase() === 'true'

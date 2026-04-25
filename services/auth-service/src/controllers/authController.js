@@ -13,13 +13,21 @@ class AuthController {
   // Register user
   register = async (req, res) => {
     try {
-      const { email, phone, password, firstName, lastName, role = 'customer' } = req.body;
+      const { email, phone, password, firstName, lastName, name, role = 'customer' } = req.body;
+
+      let fName = firstName;
+      let lName = lastName;
+      if (name) {
+          const nameParts = name.trim().split(' ');
+          if (!fName) fName = nameParts[0];
+          if (!lName) lName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'User';
+      }
 
       // Validate required fields
-      if (!email || !phone || !password || !firstName || !lastName) {
+      if (!email || !password || !fName) {
         return res.status(400).json({
           error: 'Missing required fields',
-          required: ['email', 'phone', 'password', 'firstName', 'lastName']
+          required: ['email', 'password', 'name']
         });
       }
 
@@ -39,10 +47,10 @@ class AuthController {
 
       const result = await this.authService.register({
         email: email.toLowerCase().trim(),
-        phone: phone.trim(),
+        phone: phone ? phone.trim() : null,
         password,
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
+        firstName: fName.trim(),
+        lastName: lName.trim(),
         role
       }, deviceInfo);
 

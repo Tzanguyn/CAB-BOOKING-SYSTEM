@@ -4,10 +4,20 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
 require('dotenv').config();
+let observabilityUtils;
+try {
+  observabilityUtils = require('../../../shared/utils/observability');
+} catch (e) {
+  observabilityUtils = {
+    createMetricsCollector: () => ({ middleware: (req, res, next) => next(), metricsHandler: (req, res) => res.send('') }),
+    createRequestContextMiddleware: () => (req, res, next) => next(),
+    createSecurityHeadersMiddleware: () => (req, res, next) => next()
+  };
+}
 const {
   createRequestContextMiddleware,
   createSecurityHeadersMiddleware
-} = require('../../../shared/utils/observability');
+} = observabilityUtils;
 
 // ─── Config & DB ─────────────────────────────────────────────────────────────
 const { connectMongoDB, disconnectMongoDB, checkMongoDBHealth } = require('./config/mongodb');

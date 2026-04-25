@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CAB Admin Dashboard</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">Admin Surface</p>
+        <h1>Control Room</h1>
+        <p class="lede">Realtime operation board cho Phase 4: health matrix, mesh/security posture, traffic telemetry, va quick actions de dieu hanh he thong.</p>
+      </section>
+
+      <section class="panel grid two-up">
+        <article class="card highlight">
+          <h2>Connection</h2>
+          <label>
+            Gateway URL
+            <input id="gatewayUrl" value="http://localhost:3000" />
+          </label>
+          <label>
+            Realtime URL
+            <input id="realtimeUrl" value="http://localhost:3013" />
+          </label>
+          <label>
+            Admin Token (optional)
+            <textarea id="adminToken" rows="3" placeholder="Bearer token for admin-only endpoints"></textarea>
+          </label>
+          <div class="actions">
+            <button id="refreshBtn">Refresh board</button>
+            <button id="meshCheckBtn" class="secondary">Run mesh check</button>
+          </div>
+          <p id="boardStatus">Idle</p>
+        </article>
+
+        <article class="card">
+          <h2>Snapshot</h2>
+          <div class="stat-grid">
+            <div class="stat"><span>Healthy services</span><strong id="healthyCount">0</strong></div>
+            <div class="stat"><span>Degraded services</span><strong id="degradedCount">0</strong></div>
+            <div class="stat"><span>Gateway p95(ms)</span><strong id="gatewayP95">-</strong></div>
+            <div class="stat"><span>Realtime connected users</span><strong id="realtimeUsers">-</strong></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel">
+        <article class="card">
+          <h2>Service Health Matrix</h2>
+          <div id="serviceGrid" class="service-grid"></div>
+        </article>
+      </section>
+
+      <section class="panel grid three-up">
+        <article class="card">
+          <h2>Edge + Mesh</h2>
+          <p id="meshStatus">Not checked</p>
+        </article>
+        <article class="card">
+          <h2>Gateway</h2>
+          <p id="gatewayStatus">Not checked</p>
+        </article>
+        <article class="card">
+          <h2>Realtime</h2>
+          <p id="realtimeStatus">Not checked</p>
+        </article>
+      </section>
+
+      <section class="panel grid two-up">
+        <article class="card">
+          <h2>Quick Links</h2>
+          <ul class="links">
+            <li><a href="http://localhost:3000/health" target="_blank">API Gateway health</a></li>
+            <li><a href="http://localhost:3000/api/docs/openapi.json" target="_blank">Aggregated OpenAPI</a></li>
+            <li><a href="http://localhost:9090" target="_blank">Prometheus</a></li>
+            <li><a href="http://localhost:3001" target="_blank">Grafana</a></li>
+            <li><a href="http://localhost:16686" target="_blank">Jaeger</a></li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <h2>Alerts</h2>
+          <div id="alerts" class="alerts"></div>
+        </article>
+      </section>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>

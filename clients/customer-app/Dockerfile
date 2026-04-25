@@ -1,19 +1,28 @@
-# syntax=docker/dockerfile:1
-
-FROM node:20-alpine
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install deps first (better cache)
-COPY package*.json ./
-COPY tsconfig*.json ./
+# Copy root package.json if it exists (for workspace dependencies)
+# but for now we just copy what's needed
+COPY shared ./shared
+COPY customer-app ./customer-app
 
-RUN npm ci
+# Build shared if necessary (assuming it's just TS files)
+WORKDIR /app/customer-app
 
-# Copy the rest of the source
-COPY . .
+# Accept build arguments for environment variables
+ARG VITE_API_URL
+ARG VITE_SOCKET_URL
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_SOCKET_URL=$VITE_SOCKET_URL
 
-EXPOSE 5173
+RUN npm install
+RUN npm run build
 
-# Run Vite dev server, listening on all interfaces
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+# Production stage
+FROM nginx:alpine
+COPY --from=builder /app/customer-app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

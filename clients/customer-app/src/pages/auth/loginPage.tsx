@@ -1,106 +1,153 @@
-// src/pages/Auth/LoginPage.tsx
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { authService } from '../../services/auth.service';
-
-import Button from '../../components/common/button';
+import { useNavigate, Link } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Mail, Lock, ArrowRight, Car } from 'lucide-react';
+import { loginSchema, type LoginFormData } from '@shared/types/auth.schemas';
+import { useAuth } from '@shared/contexts/AuthContext';
 
 const LoginPage = () => {
-    const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
+  const { login } = useAuth();
 
-    // State lưu dữ liệu nhập vào
-    const [formData, setFormData] = useState({
-        email: '',
-        password: ''
-    });
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: '', password: '' },
+  });
 
-    const navigate = useNavigate();
+  const onSubmit = async (data: LoginFormData) => {
+    setIsSubmitting(true);
+    try {
+      await login(data.email, data.password);
+      navigate('/customer/booking');
+    } catch {
+      // Error handled by AuthContext toast
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-    // Hàm xử lý khi gõ phím
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormData({
-            ...formData,
-            // Sửa: Dùng name thay vì type để mapping chính xác hơn
-            [e.target.name]: e.target.value
-        });
-    };
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 relative overflow-hidden p-4">
+      {/* Decorative background elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-32 -right-32 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-violet-500/5 rounded-full blur-3xl" />
+      </div>
 
-    // Hàm xử lý khi submit form
-    const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
+      <div className="w-full max-w-md relative z-10 animate-fade-in">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-500/30 transform rotate-3 hover:rotate-0 transition-transform duration-300">
+            <Car className="w-10 h-10 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-indigo-200 bg-clip-text text-transparent">
+            CAB Booking
+          </h1>
+          <p className="text-slate-400 mt-2 text-sm">Đăng nhập để đặt xe</p>
+        </div>
 
-        try {
-            const response = await authService.login(formData);
-
-            if (response.accessToken) {
-                localStorage.setItem('accessToken', response.accessToken);
-                // Kiểm tra xem response trả về refreshToken hay refresh_token để lưu đúng key
-                localStorage.setItem('refreshToken', response.refreshToken);
-
-                alert(`Đăng nhập thành công! Xin chào user ID: ${response.user?.id}`);
-
-                // Điều hướng về trang Dashboard hoặc trang chủ
-                navigate('/customer/home');
-            }
-
-        } catch (error: any) {
-            console.error("Lỗi đăng nhập:", error);
-            const message = error.response?.data?.message || "Có lỗi xảy ra, vui lòng thử lại!";
-            alert("Thất bại: " + message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <>
-            <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
-                <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
-                    <h2 className="text-2xl font-bold text-center text-gray-800 mb-6">Đăng Nhập</h2>
-
-                    <form onSubmit={handleLogin} className="space-y-4">
-                        {/* INPUT EMAIL */}
-                        <div>
-                            <label className="block text-gray-700 text-sm font-bold mb-2">Email</label>
-                            <input
-                                name="email"  // QUAN TRỌNG: Thêm name để khớp với state
-                                type="email"
-                                value={formData.email} // QUAN TRỌNG: Gắn giá trị từ state (Controlled Component)
-                                onChange={handleChange} // QUAN TRỌNG: Gắn hàm xử lý sự kiện
-                                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
-                                placeholder="nhapemail@example.com"
-                                required
-                            />
-                        </div>
-
-                        {/* INPUT PASSWORD */}
-                        <div>
-                            <label className="block text-gray-700 text-sm font-bold mb-2">Mật khẩu</label>
-                            <input
-                                name="password" // QUAN TRỌNG: Thêm name
-                                type="password"
-                                value={formData.password} // QUAN TRỌNG: Gắn giá trị
-                                onChange={handleChange} // QUAN TRỌNG: Gắn hàm
-                                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
-                                placeholder="******"
-                                required
-                            />
-                        </div>
-
-                        <Button type="submit" isLoading={loading}>
-                            Đăng nhập ngay
-                        </Button>
-                    </form>
-
-                    <p className="mt-4 text-center text-sm text-gray-600">
-                        Chưa có tài khoản? <a href="/customer/register" className="text-blue-600 hover:underline">Đăng ký</a>
-                    </p>
-                </div>
+        {/* Login Card */}
+        <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-8 shadow-2xl">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            {/* Email Field */}
+            <div>
+              <label htmlFor="login-email" className="block text-sm font-medium text-slate-300 mb-1.5">
+                Email
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <input
+                  id="login-email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  className={`w-full pl-10 pr-4 py-3 bg-slate-800/80 border rounded-xl text-white placeholder:text-slate-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 ${
+                    errors.email ? 'border-red-500/60' : 'border-slate-700 hover:border-slate-600'
+                  }`}
+                  {...register('email')}
+                />
+              </div>
+              {errors.email && (
+                <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>
+              )}
             </div>
-        </>
 
-    );
+            {/* Password Field */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="login-password" className="text-sm font-medium text-slate-300">
+                  Mật khẩu
+                </label>
+                <Link
+                  to="/customer/forgot-password"
+                  className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                >
+                  Quên mật khẩu?
+                </Link>
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <input
+                  id="login-password"
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  className={`w-full pl-10 pr-4 py-3 bg-slate-800/80 border rounded-xl text-white placeholder:text-slate-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 ${
+                    errors.password ? 'border-red-500/60' : 'border-slate-700 hover:border-slate-600'
+                  }`}
+                  {...register('password')}
+                />
+              </div>
+              {errors.password && (
+                <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>
+              )}
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full py-3 px-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/25 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {isSubmitting ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  Đăng nhập
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-6">
+            <div className="flex-1 h-px bg-slate-700" />
+            <span className="text-xs text-slate-500 uppercase tracking-wider">hoặc</span>
+            <div className="flex-1 h-px bg-slate-700" />
+          </div>
+
+          {/* Register Link */}
+          <p className="text-center text-sm text-slate-400">
+            Chưa có tài khoản?{' '}
+            <Link
+              to="/customer/register"
+              className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+            >
+              Đăng ký ngay
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default LoginPage;

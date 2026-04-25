@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { calculateExponentialBackoffDelay } = require('../../../../shared/utils/retryPolicy');
+const { calculateExponentialBackoffDelay } = require('../utils/retryPolicy');
 
 const paymentSchema = new mongoose.Schema({
   paymentId: {

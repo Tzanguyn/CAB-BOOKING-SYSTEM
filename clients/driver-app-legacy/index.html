@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CAB Driver Console</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">Driver Surface</p>
+        <h1>Driver Operations Console</h1>
+        <p class="lede">Nhan booking, chuyen trang thai chuyen di, cap nhat vi tri realtime, va theo doi event ride tren mot man hinh.</p>
+      </section>
+
+      <section class="panel grid two-up">
+        <article class="card">
+          <h2>Service Connection</h2>
+          <label>
+            Booking Service URL
+            <input id="bookingUrl" value="http://localhost:3003" />
+          </label>
+          <label>
+            Driver Service URL
+            <input id="driverUrl" value="http://localhost:3007" />
+          </label>
+          <label>
+            Socket URL
+            <input id="socketUrl" value="http://localhost:3013" />
+          </label>
+          <label>
+            Driver ID
+            <input id="driverId" value="driver-console" />
+          </label>
+          <label>
+            Customer ID (for quick booking test)
+            <input id="customerId" placeholder="customer id" />
+          </label>
+          <label>
+            JWT Token
+            <textarea id="token" rows="4" placeholder="Paste a driver token here"></textarea>
+          </label>
+          <div class="actions">
+            <button id="connectBtn">Connect</button>
+            <button id="disconnectBtn" class="secondary">Disconnect</button>
+          </div>
+          <p class="status" id="socketStatus">Disconnected</p>
+        </article>
+
+        <article class="card">
+          <h2>Driver Presence</h2>
+          <label>
+            Driver Status
+            <select id="driverStatus">
+              <option value="ONLINE">ONLINE</option>
+              <option value="BUSY">BUSY</option>
+              <option value="OFFLINE">OFFLINE</option>
+            </select>
+          </label>
+          <div class="actions">
+            <button id="statusBtn">Update status</button>
+            <button id="refreshStatusBtn" class="secondary">Refresh status</button>
+          </div>
+          <p class="status" id="driverStatusInfo">No status update yet</p>
+        </article>
+      </section>
+
+      <section class="panel grid two-up">
+        <article class="card emphasis">
+          <h2>Location And Ride Room</h2>
+          <label>
+            Ride ID
+            <input id="rideId" placeholder="booking Mongo ID" />
+          </label>
+          <div class="actions">
+            <button id="joinBtn">Join ride room</button>
+            <button id="leaveBtn" class="secondary">Leave ride room</button>
+          </div>
+          <p class="status" id="rideStatus">No ride joined</p>
+          <div class="split">
+            <label>Latitude <input id="lat" type="number" step="0.000001" value="10.776889" /></label>
+            <label>Longitude <input id="lng" type="number" step="0.000001" value="106.700806" /></label>
+          </div>
+          <div class="split">
+            <label>Speed <input id="speed" type="number" value="24" /></label>
+            <label>Heading <input id="heading" type="number" value="90" /></label>
+          </div>
+          <div class="actions">
+            <button id="sendLocationBtn">Send realtime update</button>
+            <button id="saveLocationBtn" class="secondary">Save driver location</button>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>Booking Workflow</h2>
+          <label>
+            Pickup Lat
+            <input id="pickupLat" type="number" step="0.000001" value="10.776889" />
+          </label>
+          <label>
+            Pickup Lng
+            <input id="pickupLng" type="number" step="0.000001" value="106.700806" />
+          </label>
+          <label>
+            Dropoff Lat
+            <input id="dropoffLat" type="number" step="0.000001" value="10.789" />
+          </label>
+          <label>
+            Dropoff Lng
+            <input id="dropoffLng" type="number" step="0.000001" value="106.71" />
+          </label>
+          <label>
+            Actual Fare (for complete)
+            <input id="actualFare" type="number" value="120000" />
+          </label>
+          <div class="actions">
+            <button id="createBookingBtn">Create booking test</button>
+            <button id="acceptBtn">Accept booking</button>
+            <button id="startBtn">Start ride</button>
+            <button id="completeBtn">Complete ride</button>
+            <button id="cancelBtn" class="secondary">Cancel booking</button>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel">
+        <article class="card">
+          <h2>Live Events</h2>
+          <div id="events" class="events"></div>
+        </article>
+      </section>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>

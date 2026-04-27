@@ -8,7 +8,7 @@ const path = require('path')
 const rateLimit = require('express-rate-limit')
 const morgan = require('morgan')
 const responseTime = require('response-time')
-const { createProxyMiddleware } = require('http-proxy-middleware')
+const { createProxyMiddleware, fixRequestBody } = require('http-proxy-middleware')
 const {
     createMetricsCollector,
     createRequestContextMiddleware,
@@ -325,7 +325,10 @@ app.use(helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' }
 }))
 app.use(
-    cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true })
+    cors({ 
+        origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : '*', 
+        credentials: true 
+    })
 )
 app.use(
     rateLimit({
@@ -336,6 +339,7 @@ app.use(
     })
 )
 app.use(compression())
+app.use(express.json())
 app.use(responseTime())
 morgan.token('request-id', (req) => req.requestId || '-')
 app.use(morgan(':method :url :status :response-time ms request-id=:request-id'))
@@ -413,20 +417,25 @@ const proxy = (target, pathRewrite = {}) =>
         proxyTimeout: 30000,
         timeout: 30000,
 		pathRewrite,
-		onProxyReq: (proxyReq, req, res) => {
-			console.log(`→ Proxying ${req.method} ${req.originalUrl} to ${target}${proxyReq.path}`)
-		},
-		onProxyRes: (proxyRes, req, res) => {
-			console.log(`← Response from ${target}: ${proxyRes.statusCode}`)
-		},
-		onError: (err, req, res) => {
-			console.error('❌ Proxy error:', err.message)
-			if (!res.headersSent) {
-				res.status(502).json({
-					error: 'Bad gateway',
-					target,
-					message: err.message
-				})
+		on: {
+			proxyReq: (proxyReq, req, res) => {
+				if (req.body && Object.keys(req.body).length > 0) {
+					fixRequestBody(proxyReq, req);
+				}
+				console.log(`→ Proxying ${req.method} ${req.originalUrl} to ${target}${proxyReq.path}`)
+			},
+			proxyRes: (proxyRes, req, res) => {
+				console.log(`← Response from ${target}: ${proxyRes.statusCode}`)
+			},
+			error: (err, req, res) => {
+				console.error('❌ Proxy error:', err.message)
+				if (!res.headersSent) {
+					res.status(502).json({
+						error: 'Bad gateway',
+						target,
+						message: err.message
+					})
+				}
 			}
 		}
 	})
@@ -446,7 +455,7 @@ app.use(
 
         return next()
     },
-    proxy(process.env.AUTH_SERVICE_URL || 'http://auth-service:3004')
+    proxy(process.env.AUTH_SERVICE_URL || 'http://auth-service:3004', { '^/': '/auth/' })
 )
 
 // Protected routes - require authentication
@@ -455,7 +464,7 @@ app.use(
     authenticateToken,
     requireRole('customer', 'driver', 'admin'),
     requireAnyScope('users:read', 'users:write', 'admin:*'),
-    proxy(process.env.USER_SERVICE_URL || 'http://user-service:3005')
+    proxy(process.env.USER_SERVICE_URL || 'http://user-service:3005', { '^/': '/api/users/' })
 )
 app.use(
     '/api/drivers',
@@ -469,7 +478,7 @@ app.use(
 
         return next()
     },
-    proxy(process.env.DRIVER_SERVICE_URL || 'http://driver-service:3007')
+    proxy(process.env.DRIVER_SERVICE_URL || 'http://driver-service:3007', { '^/': '/api/drivers/' })
 )
 app.use(
     '/api/bookings',
@@ -499,7 +508,7 @@ app.use(
     authenticateToken,
     requireRole('driver', 'admin', 'customer'),
     requireAnyScope('rides:read', 'rides:write', 'admin:*'),
-    proxy(process.env.RIDE_SERVICE_URL || 'http://ride-service:3009')
+    proxy(process.env.RIDE_SERVICE_URL || 'http://ride-service:3009', { '^/': '/api/rides/' })
 )
 app.use(
     '/api/payments',
@@ -517,42 +526,42 @@ app.use(
 
         return next()
     },
-    proxy(process.env.PAYMENT_SERVICE_URL || 'http://payment-service:3002')
+    proxy(process.env.PAYMENT_SERVICE_URL || 'http://payment-service:3002', { '^/': '/api/payments/' })
 )
 app.use(
     '/api/pricing',
     authenticateToken,
     requireRole('customer', 'driver', 'admin'),
     requireAnyScope('pricing:read', 'pricing:write', 'admin:*'),
-    proxy(process.env.PRICING_SERVICE_URL || 'http://pricing-service:3001')
+    proxy(process.env.PRICING_SERVICE_URL || 'http://pricing-service:3001', { '^/': '/api/pricing/' })
 )
 app.use(
     '/api/matching',
     authenticateToken,
     requireRole('customer', 'driver', 'admin'),
     requireAnyScope('matching:read', 'matching:write', 'admin:*'),
-    proxy(process.env.MATCHING_SERVICE_URL || 'http://matching-service:3014')
+    proxy(process.env.MATCHING_SERVICE_URL || 'http://matching-service:3014', { '^/': '/api/matching/' })
 )
 app.use(
     '/api/eta',
     authenticateToken,
     requireRole('customer', 'driver', 'admin'),
     requireAnyScope('eta:read', 'eta:write', 'admin:*'),
-    proxy(process.env.ETA_SERVICE_URL || 'http://eta-service:3011')
+    proxy(process.env.ETA_SERVICE_URL || 'http://eta-service:3011', { '^/': '/api/eta/' })
 )
 app.use(
     '/api/notifications',
     authenticateToken,
     requireRole('customer', 'driver', 'admin'),
     requireAnyScope('notifications:read', 'notifications:write', 'admin:*'),
-    proxy(process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:3008')
+    proxy(process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:3008', { '^/': '/api/notifications/' })
 )
 app.use(
     '/api/reviews',
     authenticateToken,
     requireRole('customer', 'driver', 'admin'),
     requireAnyScope('reviews:read', 'reviews:write', 'admin:*'),
-    proxy(process.env.REVIEW_SERVICE_URL || 'http://review-service:3006')
+    proxy(process.env.REVIEW_SERVICE_URL || 'http://review-service:3006', { '^/': '/api/reviews/' })
 )
 
 app.get('/', (req, res) => {

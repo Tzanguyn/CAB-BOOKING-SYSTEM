@@ -17,7 +17,7 @@ module.exports = (sequelize) => {
     },
     phone: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
       unique: true
     },
     password: {
@@ -33,8 +33,11 @@ module.exports = (sequelize) => {
       allowNull: false
     },
     role: {
-      type: DataTypes.ENUM('customer', 'driver', 'admin'),
-      defaultValue: 'customer'
+      type: DataTypes.STRING,
+      defaultValue: 'customer',
+      validate: {
+        isIn: [['customer', 'driver', 'admin']]
+      }
     },
     isVerified: {
       type: DataTypes.BOOLEAN,

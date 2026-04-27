@@ -1,0 +1,96 @@
+{
+	"info": {
+		"name": "Cab Booking - Notification Service API",
+		"description": "Postman Collection for testing the Cab Booking System Notification Service",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"url": {
+					"raw": "{{base_url}}/notifications/health",
+					"host": ["{{base_url}}"],
+					"path": ["notifications", "health"]
+				}
+			}
+		},
+		{
+			"name": "Send Notification (Manual)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"title\": \"Ride Confirmed\",\n  \"message\": \"Your ride is confirmed\",\n  \"type\": \"ALL\",\n  \"priority\": \"HIGH\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/notifications/send",
+					"host": ["{{base_url}}"],
+					"path": ["notifications", "send"]
+				}
+			}
+		},
+		{
+			"name": "Get User Notifications",
+			"request": {
+				"method": "GET",
+				"url": {
+					"raw": "{{base_url}}/notifications/user/{{user_id}}?limit=50&skip=0",
+					"host": ["{{base_url}}"],
+					"path": ["notifications", "user", "{{user_id}}"],
+					"query": [
+						{
+							"key": "limit",
+							"value": "50"
+						},
+						{
+							"key": "skip",
+							"value": "0"
+						}
+					]
+				}
+			}
+		},
+		{
+			"name": "Get Unread Notifications",
+			"request": {
+				"method": "GET",
+				"url": {
+					"raw": "{{base_url}}/notifications/user/{{user_id}}/unread",
+					"host": ["{{base_url}}"],
+					"path": ["notifications", "user", "{{user_id}}", "unread"]
+				}
+			}
+		},
+		{
+			"name": "Get Notification Stats",
+			"request": {
+				"method": "GET",
+				"url": {
+					"raw": "{{base_url}}/notifications/user/{{user_id}}/stats",
+					"host": ["{{base_url}}"],
+					"path": ["notifications", "user", "{{user_id}}", "stats"]
+				}
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3008/api",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "USR123",
+			"type": "string"
+		}
+	]
+}

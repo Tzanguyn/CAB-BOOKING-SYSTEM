@@ -1,11 +1,21 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
+let observabilityUtils;
+try {
+  observabilityUtils = require('../../../shared/utils/observability');
+} catch (e) {
+  observabilityUtils = {
+    createMetricsCollector: () => ({ middleware: (req, res, next) => next(), metricsHandler: (req, res) => res.send('') }),
+    createRequestContextMiddleware: () => (req, res, next) => next(),
+    createSecurityHeadersMiddleware: () => (req, res, next) => next()
+  };
+}
 const {
   createMetricsCollector,
   createRequestContextMiddleware,
   createSecurityHeadersMiddleware
-} = require('../../../shared/utils/observability');
+} = observabilityUtils;
 
 const app = express();
 const FRAUD_MODEL_VERSION = process.env.FRAUD_MODEL_VERSION || 'fraud-model-v1.0.0';

@@ -1,0 +1,152 @@
+{
+	"info": {
+		"name": "Cab Booking - Driver Service API",
+		"description": "Postman Collection for testing the Cab Booking System Driver Service",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"url": {
+					"raw": "{{base_url}}/api/drivers/health",
+					"host": ["{{base_url}}"],
+					"path": ["api", "drivers", "health"]
+				}
+			}
+		},
+		{
+			"name": "1. Driver Profile",
+			"item": [
+				{
+					"name": "Create Driver Profile",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"driverId\": \"{{driver_id}}\",\n  \"firstName\": \"Nguyen\",\n  \"lastName\": \"Van Tai Xe\",\n  \"email\": \"driver@test.com\",\n  \"phone\": \"0987654321\",\n  \"dateOfBirth\": \"1990-01-01\",\n  \"licenseNumber\": \"LCN-12345\",\n  \"licenseExpiryDate\": \"2030-01-01\",\n  \"vehicle\": {\n    \"make\": \"Toyota\",\n    \"model\": \"Vios\",\n    \"year\": 2022,\n    \"color\": \"White\",\n    \"licensePlate\": \"51H-123.45\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/drivers/profile",
+							"host": ["{{base_url}}"],
+							"path": ["api", "drivers", "profile"]
+						}
+					}
+				},
+				{
+					"name": "Get Driver Profile",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/drivers/profile/{{driver_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "drivers", "profile", "{{driver_id}}"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Driver Operations",
+			"item": [
+				{
+					"name": "Update Driver Location",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"lat\": 10.76,\n  \"lng\": 106.66\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/drivers/location/{{driver_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "drivers", "location", "{{driver_id}}"]
+						}
+					}
+				},
+				{
+					"name": "Update Driver Status (ONLINE)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"ONLINE\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/drivers/status/{{driver_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "drivers", "status", "{{driver_id}}"]
+						}
+					}
+				},
+				{
+					"name": "Get Driver Status",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/drivers/status/{{driver_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "drivers", "status", "{{driver_id}}"]
+						}
+					}
+				},
+				{
+					"name": "Find Nearby Drivers",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/drivers/nearby?lat=10.76&lng=106.66&radius=5",
+							"host": ["{{base_url}}"],
+							"path": ["api", "drivers", "nearby"],
+							"query": [
+								{
+									"key": "lat",
+									"value": "10.76"
+								},
+								{
+									"key": "lng",
+									"value": "106.66"
+								},
+								{
+									"key": "radius",
+									"value": "5"
+								}
+							]
+						}
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3007",
+			"type": "string"
+		},
+		{
+			"key": "driver_id",
+			"value": "DRV001",
+			"type": "string"
+		}
+	]
+}

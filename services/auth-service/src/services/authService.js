@@ -90,9 +90,11 @@ class AuthService {
                 throw new Error('User with this email already exists');
             }
 
-            const existingPhone = await this.userRepository.findByPhone(userData.phone);
-            if (existingPhone) {
-                throw new Error('User with this phone number already exists');
+            if (userData.phone) {
+                const existingPhone = await this.userRepository.findByPhone(userData.phone);
+                if (existingPhone) {
+                    throw new Error('User with this phone number already exists');
+                }
             }
 
             // Hash password
@@ -439,18 +441,9 @@ class AuthService {
 
     // Validate password strength
     validatePassword(password) {
-        const minLength = 8;
-        const hasUpperCase = /[A-Z]/.test(password);
-        const hasLowerCase = /[a-z]/.test(password);
-        const hasNumbers = /\d/.test(password);
-        const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-
-        if (password.length < minLength) {
-            throw new Error('Password must be at least 8 characters long');
-        }
-
-        if (!hasUpperCase || !hasLowerCase || !hasNumbers || !hasSpecialChar) {
-            throw new Error('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character');
+        const minLength = 6;
+        if (!password || password.length < minLength) {
+            throw new Error(`Password must be at least ${minLength} characters long`);
         }
     }
 

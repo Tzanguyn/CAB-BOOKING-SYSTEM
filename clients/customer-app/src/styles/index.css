@@ -1,2 +1,20 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
+/* Leaflet override to fit container */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+/* Hide leaflet branding */
+.leaflet-control-attribution {
+  display: none !important;
+}
+
+/* Custom Marker CSS */
+.custom-marker-icon {
+  background: transparent;
+  border: none;
+}

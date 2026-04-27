@@ -1,0 +1,178 @@
+{
+	"info": {
+		"name": "Cab Booking - Level 3 (Integration Tests)",
+		"description": "Postman Collection for testing Level 3 - End-to-End Integration Flow via API Gateway",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Setup: Turn Driver ONLINE & UPDATE Location",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"lat\": 10.76,\n  \"lng\": 106.66\n}"
+				},
+				"url": {
+					"raw": "http://localhost:3007/api/drivers/location/{{driver_id}}",
+					"host": ["localhost"],
+					"port": "3007",
+					"path": ["api", "drivers", "location", "{{driver_id}}"]
+				}
+			}
+		},
+		{
+			"name": "2. Setup: Turn Driver ONLINE",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"status\": \"ONLINE\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:3007/api/drivers/status/{{driver_id}}",
+					"host": ["localhost"],
+					"port": "3007",
+					"path": ["api", "drivers", "status", "{{driver_id}}"]
+				}
+			}
+		},
+		{
+			"name": "3. Booking E2E (Calls ETA, Pricing, Driver, Payment, RabbitMQ)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var jsonData = pm.response.json();",
+							"if (jsonData.data && jsonData.data.bookingId) {",
+							"    pm.environment.set(\"booking_id\", jsonData.data.bookingId);",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"customerId\": \"{{user_id}}\",\n  \"pickup\": {\"lat\": 10.76, \"lng\": 106.66},\n  \"drop\": {\"lat\": 10.77, \"lng\": 106.70},\n  \"distance_km\": 5,\n  \"paymentMethod\": \"CARD\",\n  \"autoAssign\": true\n}"
+				},
+				"url": {
+					"raw": "{{gateway_url}}/api/bookings/",
+					"host": ["{{gateway_url}}"],
+					"path": ["api", "bookings", ""]
+				}
+			}
+		},
+		{
+			"name": "4. MCP: Get Booking Context for AI Agent",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}"
+					}
+				],
+				"url": {
+					"raw": "{{gateway_url}}/api/bookings/{{booking_id}}/context",
+					"host": ["{{gateway_url}}"],
+					"path": ["api", "bookings", "{{booking_id}}", "context"]
+				}
+			}
+		},
+		{
+			"name": "5. Driver Accepts Booking",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"driverId\": \"{{driver_id}}\"\n}"
+				},
+				"url": {
+					"raw": "{{gateway_url}}/api/bookings/{{booking_id}}/confirm",
+					"host": ["{{gateway_url}}"],
+					"path": ["api", "bookings", "{{booking_id}}", "confirm"]
+				}
+			}
+		},
+		{
+			"name": "6. Check Notifications (Verify RabbitMQ Event Processed)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}"
+					}
+				],
+				"url": {
+					"raw": "{{gateway_url}}/api/notifications/user/{{user_id}}",
+					"host": ["{{gateway_url}}"],
+					"path": ["api", "notifications", "user", "{{user_id}}"]
+				}
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "gateway_url",
+			"value": "http://localhost:3000",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "driver_id",
+			"value": "DRV001",
+			"type": "string"
+		},
+		{
+			"key": "booking_id",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

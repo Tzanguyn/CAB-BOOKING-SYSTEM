@@ -1,0 +1,148 @@
+{
+	"info": {
+		"name": "Cab Booking - ETA Service API",
+		"description": "Postman Collection for testing the Cab Booking System ETA Service",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Health & Metrics",
+			"item": [
+				{
+					"name": "Health Check (Root)",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/",
+							"host": ["{{base_url}}"],
+							"path": [""]
+						}
+					}
+				},
+				{
+					"name": "Health Check (ETA API)",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/eta/health",
+							"host": ["{{base_url}}"],
+							"path": ["api", "eta", "health"]
+						}
+					}
+				},
+				{
+					"name": "Get Metrics (Prometheus)",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/metrics",
+							"host": ["{{base_url}}"],
+							"path": ["metrics"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Calculate ETA",
+			"item": [
+				{
+					"name": "Estimate ETA (Happy Path)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"distance_km\": 5,\n  \"traffic_level\": 0.5,\n  \"avg_speed_kmh\": 30,\n  \"weather_factor\": 1\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/eta/estimate",
+							"host": ["{{base_url}}"],
+							"path": ["api", "eta", "estimate"]
+						}
+					}
+				},
+				{
+					"name": "Estimate ETA (Validation Error - Missing Distance)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"traffic_level\": 0.5\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/eta/estimate",
+							"host": ["{{base_url}}"],
+							"path": ["api", "eta", "estimate"]
+						}
+					}
+				},
+				{
+					"name": "Estimate ETA (Simulate AI Model Error / Fallback)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"distance_km\": 10,\n  \"simulate_model_error\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/eta/estimate",
+							"host": ["{{base_url}}"],
+							"path": ["api", "eta", "estimate"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "3. AI Model Management",
+			"item": [
+				{
+					"name": "Check Model Drift",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"baseline_mean\": 10,\n  \"current_mean\": 15,\n  \"threshold\": 0.2\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/eta/drift-check",
+							"host": ["{{base_url}}"],
+							"path": ["api", "eta", "drift-check"]
+						}
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:3011",
+			"type": "string"
+		}
+	]
+}

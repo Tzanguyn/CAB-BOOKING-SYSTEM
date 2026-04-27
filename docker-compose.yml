@@ -170,8 +170,8 @@ services:
   # User Service
   user-service:
     build:
-      context: ./services/user-service
-      dockerfile: ${DOCKERFILE:-Dockerfile}
+      context: .
+      dockerfile: services/user-service/Dockerfile
     container_name: cab-booking-user-service
     ports:
       - "3005:3005"
@@ -549,6 +549,7 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=${NODE_ENV:-development}
+      - CORS_ORIGIN=http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:8080,http://localhost:3000
       - AUTH_SERVICE_URL=http://auth-service:3004
       - USER_SERVICE_URL=http://user-service:3005
       - DRIVER_SERVICE_URL=http://driver-service:3007
@@ -596,6 +597,7 @@ services:
       - "3013:3011"
     environment:
       - NODE_ENV=${NODE_ENV:-development}
+      - CORS_ORIGIN=http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:8080,http://localhost:3000
       - REDIS_URL=redis://redis:6379
       - RABBITMQ_URL=amqp://cab_admin:cab123%21%40%23@rabbitmq:5672/cab-booking
       - RIDE_SERVICE_URL=http://ride-service:3009
@@ -625,18 +627,46 @@ services:
 
   customer-app:
     build:
-      context: ./clients/customer-app
-      dockerfile: ${DOCKERFILE:-Dockerfile}
-    container_name: cab-booking-customer-app
+      context: ./clients
+      dockerfile: customer-app/Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:3000
+        - VITE_SOCKET_URL=http://localhost:3013
+    container_name: cab-frontend-customer
     ports:
-      - "8080:5173"
-    environment:
-      - NODE_ENV=${NODE_ENV:-development}
-      - VITE_API_URL=http://api-gateway:3000
-      - VITE_SOCKET_URL=${VITE_SOCKET_URL:-http://localhost:3013}
-    depends_on:
-      - api-gateway
-      - realtime-socket
+      - "5173:80"
+    networks:
+      - cab-booking-network
+    restart: unless-stopped
+    profiles:
+      - full
+
+  driver-app:
+    build:
+      context: ./clients
+      dockerfile: driver-app/Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:3000
+        - VITE_SOCKET_URL=http://localhost:3013
+    container_name: cab-frontend-driver
+    ports:
+      - "5174:80"
+    networks:
+      - cab-booking-network
+    restart: unless-stopped
+    profiles:
+      - full
+
+  admin-dashboard:
+    build:
+      context: ./clients
+      dockerfile: admin-dashboard/Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:3000
+        - VITE_SOCKET_URL=http://localhost:3013
+    container_name: cab-frontend-admin
+    ports:
+      - "5175:80"
     networks:
       - cab-booking-network
     restart: unless-stopped

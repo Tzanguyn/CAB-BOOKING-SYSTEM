@@ -1,0 +1,250 @@
+{
+	"info": {
+		"name": "Cab Booking - Level 2 (Edge Cases & Validation)",
+		"description": "Postman Collection for testing Level 2 - Validation, Edge Cases, Idempotency, and Error Handling",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Booking thiếu pickup -> 400",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"customerId\": \"{{user_id}}\",\n  \"drop\": {\"lat\": 10.77, \"lng\": 106.70},\n  \"distance_km\": 5\n}"
+				},
+				"url": {
+					"raw": "{{gateway_url}}/api/bookings/",
+					"host": ["{{gateway_url}}"],
+					"path": ["api", "bookings", ""]
+				}
+			}
+		},
+		{
+			"name": "2. Sai format lat/lng -> 422",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"customerId\": \"{{user_id}}\",\n  \"pickup\": {\"lat\": \"abc\", \"lng\": 106.66},\n  \"drop\": {\"lat\": 10.77, \"lng\": 106.70},\n  \"distance_km\": 5\n}"
+				},
+				"url": {
+					"raw": "{{gateway_url}}/api/bookings/",
+					"host": ["{{gateway_url}}"],
+					"path": ["api", "bookings", ""]
+				}
+			}
+		},
+		{
+			"name": "3. Driver offline -> PENDING (No drivers available)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"customerId\": \"{{user_id}}\",\n  \"pickup\": {\"lat\": 10.76, \"lng\": 106.66},\n  \"drop\": {\"lat\": 10.77, \"lng\": 106.70},\n  \"distance_km\": 5,\n  \"autoAssign\": true,\n  \"searchRadiusKm\": 1\n}"
+				},
+				"url": {
+					"raw": "{{gateway_url}}/api/bookings/",
+					"host": ["{{gateway_url}}"],
+					"path": ["api", "bookings", ""]
+				}
+			}
+		},
+		{
+			"name": "4. Payment method invalid -> 400",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"customerId\": \"{{user_id}}\",\n  \"pickup\": {\"lat\": 10.76, \"lng\": 106.66},\n  \"drop\": {\"lat\": 10.77, \"lng\": 106.70},\n  \"distance_km\": 5,\n  \"paymentMethod\": \"INVALID_CARD\"\n}"
+				},
+				"url": {
+					"raw": "{{gateway_url}}/api/bookings/",
+					"host": ["{{gateway_url}}"],
+					"path": ["api", "bookings", ""]
+				}
+			}
+		},
+		{
+			"name": "5a. ETA distance = 0 -> ETA = 0",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"distance_km\": 0,\n  \"traffic_level\": 0.5\n}"
+				},
+				"url": {
+					"raw": "{{eta_url}}/api/eta/estimate",
+					"host": ["{{eta_url}}"],
+					"path": ["api", "eta", "estimate"]
+				}
+			}
+		},
+		{
+			"name": "5b. Pricing demand_index = 0 -> Surge >= 1",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"distance_km\": 5,\n  \"demandLevel\": \"low\",\n  \"demand_index\": 0,\n  \"supply_index\": 1\n}"
+				},
+				"url": {
+					"raw": "{{pricing_url}}/api/pricing/estimate",
+					"host": ["{{pricing_url}}"],
+					"path": ["api", "pricing", "estimate"]
+				}
+			}
+		},
+		{
+			"name": "6. Fraud API thiếu field -> 400",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"user_id\": \"USR123\"\n}"
+				},
+				"url": {
+					"raw": "{{fraud_url}}/api/fraud/detect",
+					"host": ["{{fraud_url}}"],
+					"path": ["api", "fraud", "detect"]
+				}
+			}
+		},
+		{
+			"name": "7. Token expired / Invalid -> 401",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjEwMDAwMDAwMDB9.invalid_signature"
+					}
+				],
+				"url": {
+					"raw": "{{gateway_url}}/api/users/profile",
+					"host": ["{{gateway_url}}"],
+					"path": ["api", "users", "profile"]
+				}
+			}
+		},
+		{
+			"name": "8. Duplicate Booking (Idempotency) -> Return Old",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{token}}"
+					},
+					{
+						"key": "Idempotency-Key",
+						"value": "UNIQUE-REQ-12345"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"customerId\": \"{{user_id}}\",\n  \"pickup\": {\"lat\": 10.76, \"lng\": 106.66},\n  \"drop\": {\"lat\": 10.77, \"lng\": 106.70},\n  \"distance_km\": 5,\n  \"paymentMethod\": \"CASH\"\n}"
+				},
+				"url": {
+					"raw": "{{gateway_url}}/api/bookings/",
+					"host": ["{{gateway_url}}"],
+					"path": ["api", "bookings", ""]
+				}
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "gateway_url",
+			"value": "http://localhost:3000",
+			"type": "string"
+		},
+		{
+			"key": "eta_url",
+			"value": "http://localhost:3011",
+			"type": "string"
+		},
+		{
+			"key": "pricing_url",
+			"value": "http://localhost:3001",
+			"type": "string"
+		},
+		{
+			"key": "fraud_url",
+			"value": "http://localhost:3013",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "123",
+			"type": "string"
+		}
+	]
+}

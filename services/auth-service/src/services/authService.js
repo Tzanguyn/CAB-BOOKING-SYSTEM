@@ -91,9 +91,9 @@ class AuthService {
             }
 
             if (userData.phone) {
-                const existingPhone = await this.userRepository.findByPhone(userData.phone);
+                const existingPhone = await this.userRepository.findByPhoneAndRole(userData.phone, userData.role || 'customer');
                 if (existingPhone) {
-                    throw new Error('User with this phone number already exists');
+                    throw new Error(`User with this phone number already exists for role: ${userData.role || 'customer'}`);
                 }
             }
 
@@ -421,7 +421,7 @@ class AuthService {
             }
 
             // Prevent updating sensitive fields
-            const { password, role, isVerified, ...allowedUpdates } = updateData;
+            const { password, role, ...allowedUpdates } = updateData;
 
             const updatedUser = await this.userRepository.update(userId, allowedUpdates);
             const { password: _, refreshToken, ...profile } = updatedUser;

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ShieldCheck, ArrowLeft, RefreshCw } from 'lucide-react';
-import axios from 'axios';
+import axiosClient from '../../api/axiosClient';
 import showToast from '@shared/components/Toast';
 
 const VerifyEmailPage = () => {
@@ -14,7 +14,6 @@ const VerifyEmailPage = () => {
   const location = useLocation();
   const email = (location.state as { email?: string })?.email || '';
 
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
   // Countdown timer
   useEffect(() => {
@@ -69,7 +68,7 @@ const VerifyEmailPage = () => {
   const handleVerify = async (verificationCode: string) => {
     setIsSubmitting(true);
     try {
-      await axios.post(`${apiUrl}/auth/verify-email`, {
+      await axiosClient.post(`/auth/verify-email`, {
         email,
         code: verificationCode,
       });

@@ -250,6 +250,18 @@ class BookingService {
                 throw new Error('Missing required fields');
             }
 
+            // Normalize lat/lng → latitude/longitude for internal model
+            const pickup = bookingData.pickupLocation;
+            const dropoff = bookingData.dropoffLocation;
+            if (pickup.lat !== undefined && pickup.latitude === undefined) {
+                pickup.latitude = pickup.lat;
+                pickup.longitude = pickup.lng;
+            }
+            if (dropoff.lat !== undefined && dropoff.latitude === undefined) {
+                dropoff.latitude = dropoff.lat;
+                dropoff.longitude = dropoff.lng;
+            }
+
             const idempotencyKey = bookingData.idempotencyKey || null;
             const strictTransaction = bookingData.strictTransaction === true;
 
@@ -445,14 +457,26 @@ class BookingService {
 
             // Publish event để Ride Service subscribe
             await publishEvent('booking.created', {
-                bookingId: newBooking._id,
+                bookingId: newBooking.bookingId || newBooking._id,
+                booking_id: String(newBooking._id),
                 customerId,
-                pickupLocation: newBooking.pickupLocation,
-                dropoffLocation: newBooking.dropoffLocation,
+                customerName: bookingData.customerName || '',
+                customerPhone: bookingData.customerPhone || '',
+                pickupLocation: {
+                    lat: Number(pickup.latitude || pickup.lat || 0),
+                    lng: Number(pickup.longitude || pickup.lng || 0),
+                    address: pickup.address || 'Vị trí đón khách'
+                },
+                dropoffLocation: {
+                    lat: Number(dropoff.latitude || dropoff.lat || 0),
+                    lng: Number(dropoff.longitude || dropoff.lng || 0),
+                    address: dropoff.address || 'Điểm đến'
+                },
                 estimatedFare,
+                distance_km: bookingData.distance_km || 0,
                 trace_id: traceContext?.traceId || null,
                 request_id: traceContext?.requestId || null,
-                timestamp: new Date()
+                timestamp: new Date().toISOString()
             });
 
             const resultObject = {
@@ -549,29 +573,64 @@ class BookingService {
     }
 
     // Xác nhận booking (khi driver chấp nhận)
-    async confirmBooking(bookingId, driverId, rideId) {
+    async confirmBooking(bookingId, driverId, rideId, driverMeta = {}) {
         try {
+            const generatedRideId = rideId || `RIDE-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+            
             const booking = await bookingRepository.updateBooking(bookingId, {
                 status: 'ACCEPTED',
                 driverId,
-                rideId
+                rideId: generatedRideId
             });
 
-            // Publish event
-            await publishEvent('booking.confirmed', {
-                bookingId,
+            if (!booking) {
+                throw new Error(`Booking not found: ${bookingId}`);
+            }
+
+            // Fetch driver vehicle info if available
+            let driverVehicle = {};
+            try {
+                const driverServiceUrl = process.env.DRIVER_SERVICE_URL || 'http://driver-service:3007';
+                const driverRes = await axios.get(`${driverServiceUrl}/api/drivers/profile/${encodeURIComponent(driverId)}`, {
+                    headers: buildTraceHeaders(),
+                    timeout: 3000
+                });
+                const profile = driverRes.data?.data || driverRes.data || {};
+                driverVehicle = {
+                    plateNumber: profile.vehiclePlate || profile.plateNumber || '',
+                    model: profile.vehicleModel || profile.model || '',
+                    color: profile.vehicleColor || profile.color || '',
+                };
+            } catch (err) {
+                console.warn('Could not fetch driver profile for event:', err.message);
+            }
+
+            const eventPayload = {
+                bookingId: booking?.bookingId || bookingId,
+                booking_id: String(booking?._id || bookingId),
                 driverId,
-                rideId,
-                timestamp: new Date()
-            });
+                rideId: generatedRideId,
+                driverName: driverMeta.driverName || 'Tài xế CAB',
+                driverPhone: driverMeta.driverPhone || '',
+                driverRating: driverMeta.driverRating || 4.9,
+                vehiclePlate: driverVehicle.plateNumber || driverMeta.vehiclePlate || '',
+                vehicleModel: driverVehicle.model || driverMeta.vehicleModel || '',
+                vehicleColor: driverVehicle.color || driverMeta.vehicleColor || '',
+                driverLocation: driverMeta.driverLocation || null,
+                timestamp: new Date().toISOString()
+            };
+
+            // Publish event with driver metadata for MqBridge
+            await publishEvent('booking.confirmed', eventPayload);
 
             await publishEvent('ride_accepted', {
                 event_type: 'ride_accepted',
-                ride_id: booking?.bookingId || rideId,
+                ride_id: booking?.bookingId || generatedRideId,
                 driver_id: driverId,
-                booking_id: booking?.bookingId,
-                    trace_id: getCurrentTraceContext()?.traceId || null,
-                    request_id: getCurrentTraceContext()?.requestId || null,
+                booking_id: String(booking?._id || bookingId),
+                bookingId: booking?.bookingId || bookingId,
+                trace_id: getCurrentTraceContext()?.traceId || null,
+                request_id: getCurrentTraceContext()?.requestId || null,
                 timestamp: new Date().toISOString()
             });
 
@@ -584,13 +643,29 @@ class BookingService {
     // Bắt đầu chuyến đi
     async startRide(bookingId) {
         try {
+            // Validate booking exists and is in correct state
+            const existingBooking = await bookingRepository.getBookingById(bookingId);
+            if (!existingBooking) {
+                throw new Error(`Booking not found: ${bookingId}`);
+            }
+
+            const currentStatus = String(existingBooking.status || '').toUpperCase();
+            if (!['ACCEPTED', 'ARRIVED', 'CONFIRMED', 'PICKING_UP'].includes(currentStatus)) {
+                throw new Error(`Cannot start ride: booking is in ${currentStatus} state (expected ACCEPTED, ARRIVED or PICKING_UP)`);
+            }
+
             const booking = await bookingRepository.updateBooking(bookingId, {
-                status: 'IN_PROGRESS'
+                status: 'IN_PROGRESS',
+                startedAt: new Date()
             });
 
             await publishEvent('booking.started', {
-                bookingId,
-                timestamp: new Date()
+                bookingId: booking?.bookingId || bookingId,
+                booking_id: String(booking?._id || bookingId),
+                driverId: booking?.driverId || null,
+                customerId: booking?.customerId || null,
+                status: 'IN_PROGRESS',
+                timestamp: new Date().toISOString()
             });
 
             return booking;
@@ -602,16 +677,32 @@ class BookingService {
     // Hoàn thành chuyến đi
     async completeBooking(bookingId, actualFare) {
         try {
+            // Validate booking exists and is in correct state
+            const existingBooking = await bookingRepository.getBookingById(bookingId);
+            if (!existingBooking) {
+                throw new Error(`Booking not found: ${bookingId}`);
+            }
+
+            const currentStatus = String(existingBooking.status || '').toUpperCase();
+            if (!['IN_PROGRESS', 'STARTED'].includes(currentStatus)) {
+                throw new Error(`Cannot complete ride: booking is in ${currentStatus} state (expected IN_PROGRESS)`);
+            }
+
             const booking = await bookingRepository.updateBooking(bookingId, {
                 status: 'COMPLETED',
-                actualFare
+                actualFare,
+                completedAt: new Date()
             });
 
             // Publish event để Notification Service gửi notification
             await publishEvent('booking.completed', {
-                bookingId,
+                bookingId: booking?.bookingId || bookingId,
+                booking_id: String(booking?._id || bookingId),
+                driverId: booking?.driverId || null,
+                customerId: booking?.customerId || null,
                 actualFare,
-                timestamp: new Date()
+                status: 'COMPLETED',
+                timestamp: new Date().toISOString()
             });
 
             return booking;
@@ -652,6 +743,18 @@ class BookingService {
             return await bookingRepository.getBookingsByCustomerId(customerId);
         } catch (error) {
             throw new Error(`Error fetching customer bookings: ${error.message}`);
+        }
+    }
+
+    // Lấy các booking đang chờ tài xế
+    async getPendingBookings() {
+        try {
+            const requested = await bookingRepository.getBookingsByStatus('REQUESTED');
+            const pending = await bookingRepository.getBookingsByStatus('PENDING');
+            const searching = await bookingRepository.getBookingsByStatus('SEARCHING');
+            return [...requested, ...pending, ...searching].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        } catch (error) {
+            throw new Error(`Error fetching pending bookings: ${error.message}`);
         }
     }
 

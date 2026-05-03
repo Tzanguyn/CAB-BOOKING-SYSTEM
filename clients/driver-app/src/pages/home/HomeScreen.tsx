@@ -7,6 +7,7 @@ import { useAuth } from '@shared/contexts/AuthContext';
 import { useSocket } from '@shared/contexts/SocketContext';
 import { useDriverStore } from '../../store/driverStore';
 import { driverApiService } from '../../services/driverService';
+import { IncomeWidget } from '../../components/IncomeWidget';
 
 // Custom Map Marker
 const driverCarIcon = L.divIcon({
@@ -71,7 +72,9 @@ const HomeScreen = () => {
                 });
               }
               // Also update via API fallback
-              driverApiService.updateLocation(latitude, longitude);
+              if (user?.id) {
+                driverApiService.updateLocation(user.id, latitude, longitude);
+              }
             },
             () => console.warn('GPS Error'),
             { enableHighAccuracy: true, timeout: 5000 }
@@ -89,46 +92,68 @@ const HomeScreen = () => {
     };
   }, [isOnline, isConnected, socket, connect, disconnect, user?.id, setCurrentLocation]);
 
-  // Listen for Incoming Ride
+  // Listen for Incoming Ride & Fetch pending rides when online
   useEffect(() => {
     if (socket && isOnline) {
-      socket.on('ride.incoming', (data: any) => {
+      // 1. Fetch existing pending rides
+      const fetchPending = async () => {
+        try {
+          const rides = await driverApiService.getPendingRides();
+          if (rides && rides.length > 0 && rideStatus === 'IDLE') {
+            const data = rides[0];
+            setIncomingRide({
+              id: data.bookingId || data._id,
+              customerName: data.customerName || 'Khách hàng',
+              customerPhone: data.customerPhone,
+              pickup: {
+                lat: data.pickupLocation?.lat || data.pickupLocation?.latitude || 0,
+                lng: data.pickupLocation?.lng || data.pickupLocation?.longitude || 0,
+                address: data.pickupLocation?.address || 'Điểm đón'
+              },
+              dropoff: {
+                lat: data.dropoffLocation?.lat || data.dropoffLocation?.latitude || 0,
+                lng: data.dropoffLocation?.lng || data.dropoffLocation?.longitude || 0,
+                address: data.dropoffLocation?.address || 'Điểm đến'
+              },
+              distanceKm: data.distanceKm || 5,
+              price: data.estimatedFare || 50000,
+              etaToPickup: data.etaMinutes || 3
+            });
+            navigate('/driver/incoming');
+          }
+        } catch (err) {
+          console.warn('Failed to fetch pending rides', err);
+        }
+      };
+
+      if (rideStatus === 'IDLE') {
+        fetchPending();
+      }
+
+      // 2. Listen for new incoming rides
+      const handleIncomingRide = (data: any) => {
+        if (rideStatus !== 'IDLE') return; // Ignore if busy
+        
         setIncomingRide({
-          id: data.bookingId,
-          customerName: data.customer?.name || 'Khách hàng',
-          customerPhone: data.customer?.phone,
+          id: data.bookingId || data._id,
+          customerName: data.customer?.name || data.customerName || 'Khách hàng',
+          customerPhone: data.customer?.phone || data.customerPhone,
           pickup: data.pickupLocation,
           dropoff: data.dropoffLocation,
           distanceKm: data.distanceKm || 5,
           price: data.estimatedFare || 50000,
-          etaToPickup: data.etaToPickup || 3
+          etaToPickup: data.etaToPickup || data.etaMinutes || 3
         });
         navigate('/driver/incoming');
-      });
+      };
 
-      // Simulation: Mock incoming ride after 10s of being online
-      const simTimer = setTimeout(() => {
-        if (isOnline && rideStatus === 'IDLE') {
-          setIncomingRide({
-            id: `bk-${Date.now()}`,
-            customerName: 'Trần Khách Hàng',
-            customerPhone: '0901234567',
-            pickup: { lat: mapCenter[0] + 0.01, lng: mapCenter[1] + 0.01, address: '828 Sư Vạn Hạnh, Q10' },
-            dropoff: { lat: mapCenter[0] - 0.02, lng: mapCenter[1] - 0.02, address: 'Bitexco Financial Tower, Q1' },
-            distanceKm: 4.5,
-            price: 65000,
-            etaToPickup: 4
-          });
-          navigate('/driver/incoming');
-        }
-      }, 10000);
+      socket.on('ride.incoming', handleIncomingRide);
 
       return () => {
-        socket.off('ride.incoming');
-        clearTimeout(simTimer);
+        socket.off('ride.incoming', handleIncomingRide);
       };
     }
-  }, [socket, isOnline, rideStatus, mapCenter, setIncomingRide, navigate]);
+  }, [socket, isOnline, rideStatus, setIncomingRide, navigate]);
 
   const handleGetLocation = () => {
     setIsLocating(true);
@@ -160,7 +185,13 @@ const HomeScreen = () => {
         <div className="flex flex-col items-center pointer-events-auto gap-2">
           {/* Online/Offline Toggle */}
           <button
-            onClick={toggleOnline}
+            onClick={async () => {
+              const newStatus = !isOnline ? 'ONLINE' : 'OFFLINE';
+              if (user?.id) {
+                await driverApiService.toggleStatus(user.id, newStatus);
+              }
+              toggleOnline();
+            }}
             className={`w-32 h-12 rounded-full font-bold shadow-xl transition-all flex items-center justify-center gap-2 ${
               isOnline 
                 ? 'bg-emerald-500 text-white shadow-emerald-500/40 ring-4 ring-emerald-500/20' 
@@ -178,10 +209,18 @@ const HomeScreen = () => {
           )}
         </div>
 
-        <button className="w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center pointer-events-auto active:scale-95 transition-transform relative">
-          <Bell className="w-6 h-6 text-slate-700" />
-          <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
-        </button>
+        <div className="w-12 h-12 pointer-events-auto">
+          {/* Empty spacer for alignment if needed, or we can just leave it */}
+          <button className="w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform relative">
+            <Bell className="w-6 h-6 text-slate-700" />
+            <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+          </button>
+        </div>
+      </div>
+
+      {/* Income Widget */}
+      <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[400] pointer-events-auto">
+        <IncomeWidget amount={450000} rides={5} />
       </div>
 
       {/* Map */}
@@ -204,28 +243,10 @@ const HomeScreen = () => {
         {/* Current Location Button */}
         <button 
           onClick={handleGetLocation}
-          className="absolute bottom-24 right-4 z-[400] w-12 h-12 bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform border border-slate-700"
+          className="absolute bottom-6 right-4 z-[400] w-12 h-12 bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform border border-slate-700"
         >
           <Navigation className={`w-5 h-5 ${isLocating ? 'animate-spin' : ''}`} />
         </button>
-      </div>
-
-      {/* Bottom Status Panel */}
-      <div className="absolute bottom-0 left-0 w-full bg-slate-900 border-t border-slate-800 p-6 rounded-t-[32px] z-[400] shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
-        <div className="flex justify-between items-center mb-2">
-          <h3 className="text-white font-bold text-lg">Thu nhập hôm nay</h3>
-          <span className="text-emerald-400 font-bold text-xl">450.000đ</span>
-        </div>
-        <div className="flex gap-4 mt-4">
-          <div className="flex-1 bg-slate-800 rounded-2xl p-4">
-            <p className="text-slate-400 text-xs mb-1">Chuyến hoàn thành</p>
-            <p className="text-white font-bold text-2xl">5</p>
-          </div>
-          <div className="flex-1 bg-slate-800 rounded-2xl p-4">
-            <p className="text-slate-400 text-xs mb-1">Thời gian online</p>
-            <p className="text-white font-bold text-2xl">3h20</p>
-          </div>
-        </div>
       </div>
       
       {/* Offline Overlay */}

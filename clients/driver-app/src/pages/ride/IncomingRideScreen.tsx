@@ -2,10 +2,13 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Polyline } from 'react-leaflet';
 import L from 'leaflet';
-import { Ban, CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, MapPin } from 'lucide-react';
 import { useDriverStore } from '../../store/driverStore';
 import { driverApiService } from '../../services/driverService';
+import { useAuth } from '@shared/contexts/AuthContext';
+import { useSocket } from '@shared/contexts/SocketContext';
 import showToast from '@shared/components/Toast';
+import { routeService } from '../../services/routeService';
 
 const createDotIcon = (color: string) => L.divIcon({
   html: `<div class="w-4 h-4 rounded-full border-2 border-white shadow-md ${color}"></div>`,
@@ -16,15 +19,24 @@ const createDotIcon = (color: string) => L.divIcon({
 
 const IncomingRideScreen = () => {
   const navigate = useNavigate();
-  const { activeRide, rideStatus, acceptRide, declineRide } = useDriverStore();
+  const { activeRide, rideStatus, currentLocation, acceptRide, declineRide } = useDriverStore();
+  const { user } = useAuth();
+  const { socket } = useSocket();
   const [timeLeft, setTimeLeft] = useState(15);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [routePath, setRoutePath] = useState<[number, number][]>([]);
 
   useEffect(() => {
-    if (rideStatus !== 'INCOMING' || !activeRide) {
+    if (rideStatus === 'IDLE' || !activeRide) {
       navigate('/driver/home');
       return;
     }
+
+    // Fetch route path
+    routeService.getRoutePath(
+      { lat: activeRide.pickup.lat, lng: activeRide.pickup.lng },
+      { lat: activeRide.dropoff.lat, lng: activeRide.dropoff.lng }
+    ).then(path => setRoutePath(path));
 
     // Countdown Timer
     const timer = setInterval(() => {
@@ -45,10 +57,42 @@ const IncomingRideScreen = () => {
     if (!activeRide) return;
     setIsProcessing(true);
     try {
-      await driverApiService.acceptRide(activeRide.id);
+      const driverData = {
+        driverId: user?.id,
+        driverName: user?.name || 'Tài xế CAB',
+        driverPhone: user?.phone || '',
+        driverRating: 4.9,
+        driverLocation: currentLocation || null,
+      };
+
+      // 1. Call HTTP API to confirm the booking
+      const res = await driverApiService.acceptRide(activeRide.id, driverData);
+
+      // 2. Also emit socket event for instant notification (doesn't wait for RabbitMQ)
+      if (socket) {
+        socket.emit('booking:accept', {
+          bookingId: activeRide.id,
+          booking_id: activeRide.id,
+          rideId: res?.data?.rideId || `RIDE-${Date.now()}`,
+          driver: {
+            driverId: user?.id || '',
+            name: user?.name || 'Tài xế CAB',
+            phone: user?.phone || '',
+            rating: 4.9,
+            vehicle: {
+              plateNumber: 'N/A',
+              model: 'Xe hơi',
+              color: 'Trắng',
+            },
+            location: currentLocation || null,
+          },
+        });
+      }
+
       acceptRide(); // change state to PICKING_UP
       navigate('/driver/pickup');
     } catch (error) {
+      console.error('[IncomingRide] Accept error:', error);
       showToast.error('Lỗi khi nhận chuyến');
       declineRide();
       navigate('/driver/home');
@@ -75,18 +119,45 @@ const IncomingRideScreen = () => {
   if (!activeRide) return null;
 
   return (
-    <div className="h-screen w-full bg-slate-950 text-white flex flex-col relative overflow-hidden animate-fade-in z-[1000]">
-      {/* Background Pulse Effect */}
-      <div className="absolute inset-0 flex justify-center items-center pointer-events-none opacity-20">
-        <div className="w-[80vw] h-[80vw] bg-emerald-500 rounded-full animate-ping" style={{ animationDuration: '3s' }}></div>
+    <div className="h-screen w-full relative flex flex-col items-center justify-end p-4 overflow-hidden bg-slate-900 z-[1000]">
+      
+      {/* Background Map Simulation */}
+      <div className="absolute inset-0 z-[0] pointer-events-none opacity-50 blur-[2px]">
+        <MapContainer 
+          center={[activeRide.pickup.lat, activeRide.pickup.lng]} 
+          zoom={15} 
+          zoomControl={false}
+          className="w-full h-full"
+        >
+          <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+          <Marker position={[activeRide.pickup.lat, activeRide.pickup.lng]} icon={createDotIcon('bg-indigo-500')} />
+          <Marker position={[activeRide.dropoff.lat, activeRide.dropoff.lng]} icon={createDotIcon('bg-emerald-500')} />
+          <Polyline 
+            positions={routePath.length > 0 ? routePath : [[activeRide.pickup.lat, activeRide.pickup.lng], [activeRide.dropoff.lat, activeRide.dropoff.lng]]} 
+            pathOptions={{ color: '#6366f1', weight: 4, opacity: 0.8 }} 
+          />
+        </MapContainer>
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/80 to-slate-900/40 z-[10]"></div>
       </div>
 
-      <div className="pt-12 pb-6 px-6 text-center relative z-10">
-        <h1 className="text-3xl font-bold text-white tracking-tight mb-2 uppercase">Có chuyến mới!</h1>
-        <p className="text-slate-400">Tự động từ chối sau <span className={`font-bold text-lg ${timeLeft <= 5 ? 'text-red-500' : 'text-emerald-400'}`}>{timeLeft}s</span></p>
+      {/* Radar Ping Animation */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[10]">
+        <div className="w-32 h-32 bg-indigo-500/20 rounded-full animate-ping" style={{ animationDuration: '2s' }}></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-indigo-500/40 rounded-full animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s' }}></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 border-4 border-indigo-500/30 rounded-full"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-indigo-600 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(79,70,229,0.5)]">
+          <MapPin className="w-8 h-8 text-white" />
+        </div>
+      </div>
+
+      <div className="absolute top-8 left-1/2 -translate-x-1/2 text-center z-10 w-full px-6">
+        <h1 className="text-3xl font-bold text-white tracking-tight mb-2 uppercase drop-shadow-md">Có chuyến mới!</h1>
+        <div className="bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-full inline-block border border-slate-700">
+          <p className="text-slate-300 text-sm">Tự động từ chối sau <span className={`font-bold text-lg ${timeLeft <= 5 ? 'text-red-500' : 'text-emerald-400'}`}>{timeLeft}s</span></p>
+        </div>
         
         {/* Progress bar */}
-        <div className="w-full h-1 bg-slate-800 rounded-full mt-4 overflow-hidden">
+        <div className="w-full max-w-[200px] mx-auto h-1.5 bg-slate-800 rounded-full mt-4 overflow-hidden shadow-inner">
           <div 
             className={`h-full transition-all duration-1000 ease-linear ${timeLeft <= 5 ? 'bg-red-500' : 'bg-emerald-500'}`}
             style={{ width: `${(timeLeft / 15) * 100}%` }}
@@ -94,7 +165,8 @@ const IncomingRideScreen = () => {
         </div>
       </div>
 
-      <div className="flex-1 bg-slate-900 rounded-t-[40px] shadow-[0_-10px_50px_rgba(0,0,0,0.5)] p-6 flex flex-col relative z-10 mt-2">
+      {/* Info Card */}
+      <div className="w-full bg-slate-900/95 backdrop-blur-xl border border-slate-700 p-6 rounded-[32px] shadow-[0_20px_60px_rgba(0,0,0,0.8)] relative z-[20] flex flex-col mb-4">
         {/* Price & Distance */}
         <div className="flex justify-between items-center border-b border-slate-800 pb-6 mb-6">
           <div>
@@ -137,43 +209,28 @@ const IncomingRideScreen = () => {
           </div>
         </div>
 
-        {/* Mini Map */}
-        <div className="h-32 rounded-2xl overflow-hidden mb-8 border border-slate-800 relative pointer-events-none">
-          <MapContainer 
-            bounds={[[activeRide.pickup.lat, activeRide.pickup.lng], [activeRide.dropoff.lat, activeRide.dropoff.lng]]} 
-            zoomControl={false}
-            className="w-full h-full"
-          >
-            <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-            <Marker position={[activeRide.pickup.lat, activeRide.pickup.lng]} icon={createDotIcon('bg-indigo-500')} />
-            <Marker position={[activeRide.dropoff.lat, activeRide.dropoff.lng]} icon={createDotIcon('bg-emerald-500')} />
-            <Polyline positions={[[activeRide.pickup.lat, activeRide.pickup.lng], [activeRide.dropoff.lat, activeRide.dropoff.lng]]} color="#34d399" weight={3} />
-          </MapContainer>
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent z-[400]"></div>
-        </div>
-
         {/* Action Buttons */}
-        <div className="flex gap-4">
-          <button 
-            onClick={() => handleDecline(false)}
-            disabled={isProcessing}
-            className="w-16 h-16 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-50"
-          >
-            <Ban className="w-6 h-6 text-red-400" />
-          </button>
+        <div className="flex flex-col gap-3 mt-4">
           <button 
             onClick={handleAccept}
             disabled={isProcessing}
-            className="flex-1 h-16 bg-emerald-500 hover:bg-emerald-400 rounded-2xl font-bold text-white text-lg shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full h-20 bg-emerald-500 hover:bg-emerald-400 rounded-3xl font-black text-white text-2xl shadow-[0_10px_30px_rgba(16,185,129,0.3)] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-3"
           >
             {isProcessing ? (
-              <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
               <>
-                Chấp nhận
-                <CheckCircle2 className="w-6 h-6 ml-1" />
+                NHẬN CHUYẾN NGAY
+                <CheckCircle2 className="w-8 h-8" />
               </>
             )}
+          </button>
+          <button 
+            onClick={() => handleDecline(false)}
+            disabled={isProcessing}
+            className="w-full h-14 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-slate-300 font-bold transition-colors disabled:opacity-50"
+          >
+            Từ chối chuyến này
           </button>
         </div>
       </div>

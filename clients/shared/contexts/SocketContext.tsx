@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
+import toast from 'react-hot-toast';
 
 interface SocketContextType {
   socket: Socket | null;
@@ -30,16 +31,24 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
   url,
   autoConnect = false,
 }) => {
+  // Use a ref to track the active socket instance to avoid dependency cycles in connect
   const socketRef = useRef<Socket | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const socketUrl = url || import.meta.env.VITE_SOCKET_URL || 'http://localhost:3013';
 
   const connect = useCallback((token?: string) => {
-    if (socketRef.current?.connected) return;
+    // If we already have a socket and it's active/connecting, skip
+    if (socketRef.current) {
+      // socket.connected is true when connected, active is true when trying to connect
+      if (socketRef.current.connected || socketRef.current.active) {
+        return;
+      }
+    }
 
     const authToken = token || localStorage.getItem('accessToken');
 
-    socketRef.current = io(socketUrl, {
+    const newSocket = io(socketUrl, {
       auth: authToken ? { token: authToken } : undefined,
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -49,30 +58,40 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
       timeout: 10000,
     });
 
-    socketRef.current.on('connect', () => {
-      console.log('[Socket] Connected:', socketRef.current?.id);
+    socketRef.current = newSocket;
+
+    newSocket.on('connect', () => {
+      console.log('[Socket] Connected:', newSocket.id);
       setIsConnected(true);
+      // Set the socket in state so consumers get the new instance ONLY when connected
+      setSocket(newSocket);
     });
 
-    socketRef.current.on('disconnect', (reason) => {
+    newSocket.on('disconnect', (reason) => {
       console.log('[Socket] Disconnected:', reason);
       setIsConnected(false);
     });
 
-    socketRef.current.on('connect_error', (error) => {
+    newSocket.on('connect_error', (error) => {
       console.error('[Socket] Connection error:', error.message);
       setIsConnected(false);
+      // Only show error toast if we were previously connected, avoiding spam on first load
+      if (newSocket.active) {
+        toast.error('Mất kết nối máy chủ. Đang thử lại...', { id: 'socket-error' });
+      }
     });
 
-    socketRef.current.on('reconnect', (attemptNumber) => {
+    newSocket.on('reconnect', (attemptNumber: number) => {
       console.log('[Socket] Reconnected after', attemptNumber, 'attempts');
       setIsConnected(true);
+      toast.success('Đã kết nối lại với máy chủ', { id: 'socket-error' });
     });
 
-    socketRef.current.on('reconnect_failed', () => {
+    newSocket.on('reconnect_failed', () => {
       console.error('[Socket] Reconnection failed');
       setIsConnected(false);
     });
+
   }, [socketUrl]);
 
   const disconnect = useCallback(() => {
@@ -80,8 +99,9 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
       socketRef.current.removeAllListeners();
       socketRef.current.disconnect();
       socketRef.current = null;
-      setIsConnected(false);
     }
+    setSocket(null);
+    setIsConnected(false);
   }, []);
 
   useEffect(() => {
@@ -93,12 +113,15 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
     }
 
     return () => {
-      disconnect();
+      if (socketRef.current) {
+        socketRef.current.removeAllListeners();
+        socketRef.current.disconnect();
+      }
     };
-  }, [autoConnect, connect, disconnect]);
+  }, [autoConnect, connect]);
 
   const value: SocketContextType = {
-    socket: socketRef.current,
+    socket,
     isConnected,
     connect,
     disconnect,

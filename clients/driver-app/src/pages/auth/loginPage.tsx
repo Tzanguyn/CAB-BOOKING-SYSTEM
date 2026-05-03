@@ -24,7 +24,7 @@ const DriverLoginPage = () => {
     setIsSubmitting(true);
     try {
       await login(data.email, data.password);
-      navigate('/driver/dashboard');
+      navigate('/driver/home');
     } catch {
       // Error handled by AuthContext toast
     } finally {

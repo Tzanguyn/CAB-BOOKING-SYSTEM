@@ -1,6 +1,25 @@
 const Booking = require('../models/Booking');
+const mongoose = require('mongoose');
 
 class BookingRepository {
+    /**
+     * Resolve a booking by either MongoDB _id or custom bookingId field (BKG-xxx).
+     * Returns the Mongoose document or null.
+     */
+    async resolveBooking(id) {
+        if (!id) return null;
+
+        // Try MongoDB ObjectId first
+        if (mongoose.Types.ObjectId.isValid(id)) {
+            const byId = await Booking.findById(id);
+            if (byId) return byId;
+        }
+
+        // Fallback: look up by the custom bookingId field
+        const byBookingId = await Booking.findOne({ bookingId: id });
+        return byBookingId || null;
+    }
+
     // Tạo mới booking
     async createBooking(bookingData) {
         try {
@@ -11,10 +30,11 @@ class BookingRepository {
         }
     }
 
-    // Lấy booking theo ID
+    // Lấy booking theo ID (supports both _id and bookingId)
     async getBookingById(bookingId) {
         try {
-            return await Booking.findById(bookingId);
+            const booking = await this.resolveBooking(bookingId);
+            return booking;
         } catch (error) {
             throw new Error(`Error fetching booking: ${error.message}`);
         }
@@ -29,11 +49,15 @@ class BookingRepository {
         }
     }
 
-    // Cập nhật booking
+    // Cập nhật booking (supports both _id and custom bookingId)
     async updateBooking(bookingId, updateData) {
         try {
+            const booking = await this.resolveBooking(bookingId);
+            if (!booking) {
+                throw new Error(`Booking not found: ${bookingId}`);
+            }
             return await Booking.findByIdAndUpdate(
-                bookingId,
+                booking._id,
                 { ...updateData, updatedAt: new Date() },
                 { new: true }
             );
@@ -42,11 +66,15 @@ class BookingRepository {
         }
     }
 
-    // Hủy booking
+    // Hủy booking (supports both _id and custom bookingId)
     async cancelBooking(bookingId) {
         try {
+            const booking = await this.resolveBooking(bookingId);
+            if (!booking) {
+                throw new Error(`Booking not found: ${bookingId}`);
+            }
             return await Booking.findByIdAndUpdate(
-                bookingId,
+                booking._id,
                 { status: 'CANCELLED', updatedAt: new Date() },
                 { new: true }
             );
@@ -67,7 +95,7 @@ class BookingRepository {
     // Kiểm tra booking đã tồn tại
     async bookingExists(bookingId) {
         try {
-            const booking = await Booking.findById(bookingId);
+            const booking = await this.resolveBooking(bookingId);
             return !!booking;
         } catch (error) {
             throw new Error(`Error checking booking existence: ${error.message}`);

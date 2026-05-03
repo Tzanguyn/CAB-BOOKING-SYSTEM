@@ -326,7 +326,7 @@ app.use(helmet({
 }))
 app.use(
     cors({ 
-        origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : '*', 
+        origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true, 
         credentials: true 
     })
 )
@@ -419,7 +419,7 @@ const proxy = (target, pathRewrite = {}) =>
 		pathRewrite,
 		on: {
 			proxyReq: (proxyReq, req, res) => {
-				if (req.body && Object.keys(req.body).length > 0) {
+				if (req.body) {
 					fixRequestBody(proxyReq, req);
 				}
 				console.log(`→ Proxying ${req.method} ${req.originalUrl} to ${target}${proxyReq.path}`)
@@ -491,6 +491,9 @@ app.use(
         }
 
         if (req.method === 'GET' && req.path.startsWith('/customer/')) {
+            const customerId = req.path.split('/')[2];
+            req.params = req.params || {};
+            req.params.customerId = customerId;
             return requireSelfOrAdmin('customerId')(req, res, next)
         }
 

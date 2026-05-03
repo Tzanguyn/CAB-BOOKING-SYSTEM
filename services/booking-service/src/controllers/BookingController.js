@@ -128,13 +128,38 @@ class BookingController {
         }
     }
 
+    // GET /bookings/pending/all - Lấy các booking đang tìm tài xế
+    async getPendingBookings(req, res) {
+        try {
+            const bookings = await bookingService.getPendingBookings();
+
+            res.status(200).json({
+                success: true,
+                data: bookings
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error.message
+            });
+        }
+    }
+
     // POST /bookings/:id/confirm - Xác nhận booking
     async confirmBooking(req, res) {
         try {
             const { id } = req.params;
-            const { driverId, rideId } = req.body;
+            const { driverId, rideId, driverName, driverPhone, driverRating, vehiclePlate, vehicleModel, vehicleColor, driverLocation } = req.body;
 
-            const booking = await bookingService.confirmBooking(id, driverId, rideId);
+            const booking = await bookingService.confirmBooking(id, driverId, rideId, {
+                driverName,
+                driverPhone,
+                driverRating,
+                vehiclePlate,
+                vehicleModel,
+                vehicleColor,
+                driverLocation
+            });
 
             res.status(200).json({
                 success: true,

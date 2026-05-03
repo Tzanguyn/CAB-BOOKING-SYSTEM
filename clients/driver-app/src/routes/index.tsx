@@ -14,6 +14,7 @@ import IncomingRideScreen from '../pages/ride/IncomingRideScreen';
 import PickupScreen from '../pages/ride/PickupScreen';
 import TripInProgressScreen from '../pages/ride/TripInProgressScreen';
 import EarningsScreen from '../pages/earnings/EarningsScreen';
+import HistoryScreen from '../pages/earnings/HistoryScreen';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -96,6 +97,12 @@ const AppRoutes = () => {
       <Route path="/driver/earnings" element={
         <ProtectedRoute>
           <EarningsScreen />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/driver/history" element={
+        <ProtectedRoute>
+          <HistoryScreen />
         </ProtectedRoute>
       } />
 

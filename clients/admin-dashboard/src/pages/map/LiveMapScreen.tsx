@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import { Car, MapPin, RefreshCw } from 'lucide-react';
+import { useSocket } from '@shared/contexts/SocketContext';
 
-const createCarIcon = (status: 'idle' | 'in_progress') => L.divIcon({
+const createCarIcon = (status: 'idle' | 'in_progress' | string) => L.divIcon({
   html: `
     <div class="relative w-10 h-10 flex items-center justify-center">
       <div class="absolute inset-0 bg-${status === 'idle' ? 'emerald' : 'indigo'}-500 opacity-20 rounded-full animate-ping"></div>
@@ -17,28 +18,75 @@ const createCarIcon = (status: 'idle' | 'in_progress') => L.divIcon({
   iconAnchor: [20, 20]
 });
 
-// Mock active drivers
-const mockDrivers = [
-  { id: '1', name: 'Nguyễn Văn A', lat: 10.762622, lng: 106.660172, status: 'idle', vehicle: 'CAB Economy - 51F-12345' },
-  { id: '2', name: 'Trần Văn C', lat: 10.771234, lng: 106.671234, status: 'in_progress', vehicle: 'CAB Standard - 51H-67890', customer: 'Lê Thị B' },
-  { id: '3', name: 'Hoàng Văn E', lat: 10.751234, lng: 106.651234, status: 'idle', vehicle: 'CAB SUV - 51A-11111' },
-];
+interface DriverLocation {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  status: string;
+  vehicle: string;
+  customer?: string;
+}
 
 const LiveMapScreen = () => {
-  const [drivers, setDrivers] = useState(mockDrivers);
+  const [drivers, setDrivers] = useState<DriverLocation[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const { socket, isConnected, connect } = useSocket();
+
+  useEffect(() => {
+    if (!isConnected) {
+      connect();
+    }
+  }, [isConnected, connect]);
+
+  useEffect(() => {
+    if (socket) {
+      // Receive initial active drivers
+      socket.emit('admin.get_active_drivers');
+      
+      socket.on('admin.active_drivers', (data: DriverLocation[]) => {
+        setDrivers(data || []);
+      });
+
+      // Listen for real-time location updates from drivers
+      socket.on('driver.location.updated', (data: any) => {
+        setDrivers(prev => {
+          const exists = prev.find(d => d.id === data.driverId);
+          if (exists) {
+            return prev.map(d => d.id === data.driverId ? { ...d, lat: data.lat, lng: data.lng, status: data.status || d.status } : d);
+          } else {
+            // New driver came online
+            return [...prev, {
+              id: data.driverId,
+              name: data.driverName || 'Tài xế ' + data.driverId.slice(-4),
+              lat: data.lat,
+              lng: data.lng,
+              status: data.status || 'idle',
+              vehicle: data.vehicle || 'CAB Standard'
+            }];
+          }
+        });
+      });
+
+      // Listen for driver going offline
+      socket.on('driver.offline', (data: { driverId: string }) => {
+        setDrivers(prev => prev.filter(d => d.id !== data.driverId));
+      });
+
+      return () => {
+        socket.off('admin.active_drivers');
+        socket.off('driver.location.updated');
+        socket.off('driver.offline');
+      };
+    }
+  }, [socket]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    // Simulate fetching new locations
-    setTimeout(() => {
-      setDrivers(drivers.map(d => ({
-        ...d,
-        lat: d.lat + (Math.random() - 0.5) * 0.01,
-        lng: d.lng + (Math.random() - 0.5) * 0.01,
-      })));
-      setIsRefreshing(false);
-    }, 1000);
+    if (socket) {
+      socket.emit('admin.get_active_drivers');
+    }
+    setTimeout(() => setIsRefreshing(false), 800);
   };
 
   return (

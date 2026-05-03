@@ -3,17 +3,8 @@
 # CAB Booking System - Docker Compose Configuration
 # ================================================
 #
-# Profiles:
-#   - base: Core infrastructure (databases, message broker)
-#   - development: Development environment with hot reload
-#   - production: Production environment
-#   - full: Full production with frontend
-#
 # Usage:
-#   docker-compose --profile base up -d                    # Infrastructure only
-#   docker-compose --profile development up -d             # Development setup
-#   docker-compose --profile production up -d              # Production setup
-#   docker-compose --profile full up -d                    # Full production
+#   docker-compose up -d --build
 
 services:
   # ============================================================================
@@ -42,12 +33,6 @@ services:
       timeout: 10s
       retries: 5
     restart: unless-stopped
-    profiles:
-      - base
-      - development
-      - production
-      - full
-
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
@@ -69,12 +54,6 @@ services:
       timeout: 10s
       retries: 5
     restart: unless-stopped
-    profiles:
-      - base
-      - development
-      - production
-      - full
-
   # MongoDB Database
   mongodb:
     image: mongo:7-jammy
@@ -96,12 +75,6 @@ services:
       timeout: 10s
       retries: 5
     restart: unless-stopped
-    profiles:
-      - base
-      - development
-      - production
-      - full
-
   # Redis Cache
   redis:
     image: redis:7-alpine
@@ -120,12 +93,6 @@ services:
       timeout: 10s
       retries: 5
     restart: unless-stopped
-    profiles:
-      - base
-      - development
-      - production
-      - full
-
   # ============================================================================
   # MICROSERVICES (Development/Production/Full Profiles)
   # ============================================================================
@@ -162,11 +129,6 @@ services:
       timeout: 10s
       retries: 5
     restart: unless-stopped
-    profiles:
-      - development
-      - production
-      - full
-
   # User Service
   user-service:
     build:
@@ -196,11 +158,6 @@ services:
       timeout: 10s
       retries: 5
     restart: unless-stopped
-    profiles:
-      - development
-      - production
-      - full
-
   # Driver Service
   driver-service:
     build:
@@ -233,11 +190,6 @@ services:
       timeout: 10s
       retries: 5
     restart: unless-stopped
-    profiles:
-      - development
-      - production
-      - full
-
   # Booking Service
   booking-service:
     build:
@@ -278,11 +230,6 @@ services:
       timeout: 10s
       retries: 5
     restart: unless-stopped
-    profiles:
-      - development
-      - production
-      - full
-
   # Ride Service
   ride-service:
     build:
@@ -316,11 +263,6 @@ services:
       timeout: 10s
       retries: 5
     restart: unless-stopped
-    profiles:
-      - development
-      - production
-      - full
-
   # Payment Service
   payment-service:
     build:
@@ -350,11 +292,6 @@ services:
       timeout: 10s
       retries: 5
     restart: unless-stopped
-    profiles:
-      - development
-      - production
-      - full
-
   # Pricing Service
   pricing-service:
     build:
@@ -384,11 +321,6 @@ services:
       timeout: 10s
       retries: 5
     restart: unless-stopped
-    profiles:
-      - development
-      - production
-      - full
-
   # Matching Service
   matching-service:
     build:
@@ -416,11 +348,6 @@ services:
       timeout: 10s
       retries: 5
     restart: unless-stopped
-    profiles:
-      - development
-      - production
-      - full
-
   # Notification Service
   notification-service:
     build:
@@ -449,11 +376,6 @@ services:
       timeout: 10s
       retries: 5
     restart: unless-stopped
-    profiles:
-      - development
-      - production
-      - full
-
   # ETA Service
   eta-service:
     build:
@@ -474,11 +396,6 @@ services:
       timeout: 10s
       retries: 5
     restart: unless-stopped
-    profiles:
-      - development
-      - production
-      - full
-
   # Fraud Service
   fraud-service:
     build:
@@ -499,11 +416,6 @@ services:
       timeout: 10s
       retries: 5
     restart: unless-stopped
-    profiles:
-      - development
-      - production
-      - full
-
   # Review Service
   review-service:
     build:
@@ -531,11 +443,6 @@ services:
       timeout: 10s
       retries: 3
     restart: unless-stopped
-    profiles:
-      - development
-      - production
-      - full
-
   # ============================================================================
   # API GATEWAY (Development/Production/Full Profiles)
   # ============================================================================
@@ -579,11 +486,6 @@ services:
       timeout: 10s
       retries: 5
     restart: unless-stopped
-    profiles:
-      - development
-      - production
-      - full
-
   # ============================================================================
   # REAL-TIME SERVICES (Development/Production/Full Profiles)
   # ============================================================================
@@ -616,11 +518,6 @@ services:
       timeout: 10s
       retries: 5
     restart: unless-stopped
-    profiles:
-      - development
-      - production
-      - full
-
   # ============================================================================
   # FRONTEND (Full Profile Only)
   # ============================================================================
@@ -638,9 +535,6 @@ services:
     networks:
       - cab-booking-network
     restart: unless-stopped
-    profiles:
-      - full
-
   driver-app:
     build:
       context: ./clients
@@ -654,9 +548,6 @@ services:
     networks:
       - cab-booking-network
     restart: unless-stopped
-    profiles:
-      - full
-
   admin-dashboard:
     build:
       context: ./clients
@@ -670,9 +561,6 @@ services:
     networks:
       - cab-booking-network
     restart: unless-stopped
-    profiles:
-      - full
-
 volumes:
   postgres_data:
     driver: local

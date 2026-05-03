@@ -4,6 +4,7 @@ const http = require('http');
 const jwt = require('jsonwebtoken');
 const { Server } = require('socket.io');
 const GPSTracker = require('./gpsTracker');
+const MqBridge = require('./mqBridge');
 
 require('dotenv').config();
 
@@ -241,12 +242,83 @@ async function createRealtimeServer() {
 			}
 		});
 
+		// Relay direct legacy location updates from driver to customer
+		socket.on('driver.location.updated', (payload) => {
+			io.emit('driver.location.updated', payload);
+		});
+
+		// Direct socket event: driver accepts a booking
+		// This provides instant notification to the customer without waiting for RabbitMQ round-trip
+		socket.on('booking:accept', (payload = {}, ack) => {
+			try {
+				const { bookingId, booking_id, rideId, driver } = payload;
+				if (!bookingId && !booking_id) {
+					if (typeof ack === 'function') ack({ success: false, message: 'bookingId required' });
+					return;
+				}
+
+				const matchPayload = {
+					bookingId: bookingId || booking_id,
+					booking_id: booking_id || bookingId,
+					rideId: rideId || `ride-${Date.now()}`,
+					driver: driver || {
+						driverId: socket.user.userId,
+						name: 'Tài xế CAB',
+						phone: '',
+						rating: 4.9,
+						vehicle: { plateNumber: 'N/A', model: 'Xe hơi', color: 'Trắng' },
+						location: null,
+					},
+				};
+
+				console.log(`[Socket] Direct booking:accept for ${bookingId || booking_id} from ${socket.user.userId}`);
+				io.emit('ride.matched', matchPayload);
+
+				if (typeof ack === 'function') ack({ success: true });
+			} catch (error) {
+				console.error('[Socket] booking:accept error:', error.message);
+				if (typeof ack === 'function') ack({ success: false, message: error.message });
+			}
+		});
+
+		// Direct socket event: driver changes ride status (picked_up, completed, etc.)
+		socket.on('ride:status:change', (payload = {}, ack) => {
+			try {
+				const { bookingId, booking_id, status } = payload;
+				if (!bookingId && !booking_id) {
+					if (typeof ack === 'function') ack({ success: false, message: 'bookingId required' });
+					return;
+				}
+
+				const statusPayload = {
+					bookingId: bookingId || booking_id,
+					booking_id: booking_id || bookingId,
+					status,
+					timestamp: new Date().toISOString(),
+				};
+
+				console.log(`[Socket] ride:status:change ${status} for ${bookingId || booking_id}`);
+				io.emit('ride.status.updated', statusPayload);
+
+				if (typeof ack === 'function') ack({ success: true });
+			} catch (error) {
+				console.error('[Socket] ride:status:change error:', error.message);
+				if (typeof ack === 'function') ack({ success: false, message: error.message });
+			}
+		});
+
 		socket.on('disconnect', () => {
 			gpsTracker.unregisterConnection(userId);
 		});
 	});
 
-	return { server, io, gpsTracker };
+	// Initialize RabbitMQ → Socket.IO bridge
+	const mqBridge = new MqBridge(io);
+	mqBridge.connect().catch((err) => {
+		console.warn('⚠️ MqBridge initialization failed:', err.message);
+	});
+
+	return { server, io, gpsTracker, mqBridge };
 }
 
 module.exports = {

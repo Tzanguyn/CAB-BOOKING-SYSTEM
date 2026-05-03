@@ -51,6 +51,13 @@ router.get(
  * =========================
  */
 
+// ✅ Lấy các booking đang chờ tài xế
+router.get(
+  '/pending/all',
+  authenticateToken,
+  bookingController.getPendingBookings.bind(bookingController)
+);
+
 // ✅ Driver xác nhận booking
 router.post(
   '/:id/confirm',

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, useMap, useMapEvents, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
-import { Search, Navigation, Menu, Home as HomeIcon, Briefcase } from 'lucide-react';
+import { Search, Navigation, Menu, Home as HomeIcon, Briefcase, ChevronRight, MapPin } from 'lucide-react';
 import { useBookingStore } from '../../store/bookingStore';
 import { locationService } from '../../services/locationService';
-import { BottomSheet } from '@shared/components';
+import { useAuth } from '@shared/contexts/AuthContext';
 
 // Fix Leaflet's default icon issue in React
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -35,19 +35,35 @@ const MapEvents = ({ onDragEnd }: { onDragEnd: (lat: number, lng: number) => voi
   return null;
 };
 
+// Mock nearby drivers
+const nearbyDrivers = [
+  { lat: 10.764, lng: 106.662 },
+  { lat: 10.760, lng: 106.658 },
+  { lat: 10.766, lng: 106.665 },
+  { lat: 10.758, lng: 106.663 },
+  { lat: 10.763, lng: 106.657 },
+];
+
 const HomeScreen = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { setPickup, resetBooking } = useBookingStore();
   const [mapCenter, setMapCenter] = useState<[number, number]>([10.762622, 106.660172]); // Default HCMC
   const [isLocating, setIsLocating] = useState(false);
   const [addressText, setAddressText] = useState('Đang tìm vị trí...');
-  const [isSheetOpen] = useState(true);
 
   // Initialize
   useEffect(() => {
-    resetBooking(); // Reset any previous unfinished booking
+    resetBooking();
     handleGetLocation();
   }, []);
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Chào buổi sáng';
+    if (hour < 18) return 'Chào buổi chiều';
+    return 'Chào buổi tối';
+  };
 
   const handleGetLocation = () => {
     setIsLocating(true);
@@ -61,7 +77,6 @@ const HomeScreen = () => {
         },
         (error) => {
           console.error("Error getting location:", error);
-          // Fallback to default
           updateAddress(mapCenter[0], mapCenter[1]);
           setIsLocating(false);
         },
@@ -74,10 +89,10 @@ const HomeScreen = () => {
   };
 
   const updateAddress = async (lat: number, lng: number) => {
-    setAddressText('Đang cập nhật địa chỉ...');
+    setAddressText('Đang cập nhật...');
     const result = await locationService.getAddressFromCoords(lat, lng);
     if (result) {
-      setAddressText(result.name || result.address);
+      setAddressText(result.name || result.address.split(',')[0]);
       setPickup(result);
     } else {
       setAddressText('Vị trí không xác định');
@@ -94,23 +109,31 @@ const HomeScreen = () => {
     navigate('/customer/destination');
   };
 
+  const userName = user?.firstName || user?.name?.split(' ')[0] || 'bạn';
+
   return (
-    <div className="h-screen w-full relative flex flex-col bg-slate-100 overflow-hidden">
-      {/* Top Header/Nav */}
-      <div className="absolute top-0 left-0 w-full p-4 z-[400] flex justify-between items-start pointer-events-none">
+    <div className="h-screen w-full relative flex flex-col bg-slate-100 overflow-hidden page-with-nav">
+      {/* ── Top Header ── */}
+      <div className="absolute top-0 left-0 w-full px-4 pt-4 pb-2 z-[400] flex justify-between items-start pointer-events-none">
+        {/* Menu / Profile Button */}
         <button 
           onClick={() => navigate('/customer/profile')}
-          className="w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center pointer-events-auto active:scale-95 transition-transform"
+          className="w-11 h-11 glass rounded-2xl shadow-lg flex items-center justify-center pointer-events-auto touch-bounce"
         >
-          <Menu className="w-6 h-6 text-slate-700" />
+          <Menu className="w-5 h-5 text-slate-700" />
         </button>
-        <div className="bg-white/90 backdrop-blur px-4 py-2 rounded-full shadow-lg pointer-events-auto flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span className="text-sm font-semibold text-slate-700">CAB Standard</span>
+
+        {/* Status Badge */}
+        <div className="glass px-4 py-2.5 rounded-2xl shadow-lg pointer-events-auto flex items-center gap-2">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span className="text-xs font-bold text-slate-700 tracking-wide">CAB Booking</span>
         </div>
       </div>
 
-      {/* Map Container */}
+      {/* ── Map Container ── */}
       <div className="flex-1 w-full relative z-[0]">
         <MapContainer 
           center={mapCenter} 
@@ -125,67 +148,98 @@ const HomeScreen = () => {
           <MapUpdater center={mapCenter} />
           <MapEvents onDragEnd={handleDragEnd} />
           
-          {/* We don't use a draggable marker, we keep the map center as the pickup point */}
+          {/* Nearby Driver Dots */}
+          {nearbyDrivers.map((d, i) => (
+            <CircleMarker 
+              key={i} 
+              center={[d.lat + (mapCenter[0] - 10.762622), d.lng + (mapCenter[1] - 106.660172)]} 
+              radius={4}
+              pathOptions={{ 
+                fillColor: '#6366f1', 
+                fillOpacity: 0.7, 
+                color: '#4f46e5', 
+                weight: 2 
+              }}
+            />
+          ))}
         </MapContainer>
         
-        {/* Fixed Center Marker Overlay (Simulates picking a location by moving the map) */}
+        {/* ── Fixed Center Pickup Pin ── */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[100%] z-[400] pointer-events-none">
-          <div className="relative flex flex-col items-center">
-            {/* Address Bubble */}
-            <div className="bg-slate-900 text-white text-xs font-medium px-3 py-1.5 rounded-full mb-2 shadow-lg whitespace-nowrap max-w-[200px] truncate">
-              {addressText}
-            </div>
-            {/* Marker Pin */}
-            <div className="w-10 h-10 bg-indigo-600 rounded-full rounded-br-none -rotate-45 shadow-xl flex items-center justify-center">
-              <div className="w-4 h-4 bg-white rounded-full"></div>
+          <div className="relative flex flex-col items-center animate-pin-bounce">
+            {/* Pin */}
+            <div className="w-12 h-12 gradient-primary rounded-full rounded-br-none -rotate-45 shadow-xl flex items-center justify-center animate-pulse-glow">
+              <div className="w-5 h-5 bg-white rounded-full rotate-45"></div>
             </div>
           </div>
+          {/* Pin Shadow */}
+          <div className="pin-shadow mx-auto mt-1"></div>
         </div>
 
-        {/* Current Location Button */}
+        {/* ── Current Location Button ── */}
         <button 
           onClick={handleGetLocation}
-          className="absolute bottom-32 right-4 z-[400] w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform"
+          className="absolute bottom-[260px] right-4 z-[400] w-12 h-12 glass rounded-2xl shadow-lg flex items-center justify-center touch-bounce"
         >
-          <Navigation className={`w-5 h-5 text-slate-700 ${isLocating ? 'animate-spin' : ''}`} />
+          <Navigation className={`w-5 h-5 text-indigo-600 ${isLocating ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
-      {/* Bottom Sheet for Action */}
-      <BottomSheet 
-        isOpen={isSheetOpen} 
-        onClose={() => {}} // Can't close
-        title=""
-      >
-        <div className="px-5 pb-6">
-          <h2 className="text-xl font-bold text-slate-800 mb-4">Bạn muốn đi đâu?</h2>
+      {/* ── Bottom Sheet ── */}
+      <div className="absolute bottom-[72px] left-0 w-full z-[400] animate-slide-up">
+        <div className="bg-white rounded-t-[28px] shadow-[0_-4px_30px_rgba(0,0,0,0.08)] px-5 pt-5 pb-4">
+          {/* Handle */}
+          <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+          
+          {/* Greeting */}
+          <div className="mb-4">
+            <h2 className="text-xl font-extrabold text-slate-900">
+              {getGreeting()}, <span className="text-indigo-600">{userName}</span>! 👋
+            </h2>
+            <p className="text-sm text-slate-500 mt-1 flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-indigo-500" />
+              <span className="truncate">{addressText}</span>
+            </p>
+          </div>
           
           {/* Search Bar Trigger */}
           <div 
             onClick={goToDestinationSearch}
-            className="w-full bg-slate-100 p-4 rounded-2xl flex items-center gap-3 cursor-text hover:bg-slate-200 transition-colors mb-6"
+            className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl flex items-center gap-3 cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition-all mb-4 touch-bounce group"
           >
-            <Search className="w-5 h-5 text-slate-500" />
-            <span className="text-slate-500 text-base flex-1">Tìm kiếm điểm đến...</span>
+            <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-lg group-hover:shadow-indigo-500/20 transition-shadow">
+              <Search className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="text-slate-800 font-semibold text-sm">Bạn muốn đi đâu?</p>
+              <p className="text-slate-400 text-xs mt-0.5">Tìm kiếm điểm đến...</p>
+            </div>
+            <ChevronRight className="w-5 h-5 text-slate-300" />
           </div>
 
-          {/* Shortcuts */}
-          <div className="flex gap-4 mb-2">
-            <button className="flex-1 flex flex-col items-center justify-center p-3 bg-white border border-slate-200 rounded-2xl hover:border-indigo-500 hover:bg-indigo-50/50 transition-all">
-              <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center mb-2">
+          {/* Saved Locations Shortcuts */}
+          <div className="flex gap-3">
+            <button className="flex-1 flex items-center gap-3 p-3.5 bg-slate-50 border border-slate-100 rounded-2xl hover:border-indigo-200 hover:bg-indigo-50/30 transition-all touch-bounce group">
+              <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
                 <HomeIcon className="w-5 h-5 text-indigo-600" />
               </div>
-              <span className="text-sm font-medium text-slate-700">Nhà riêng</span>
+              <div className="text-left flex-1 min-w-0">
+                <p className="text-sm font-bold text-slate-800">Nhà riêng</p>
+                <p className="text-[11px] text-slate-400 truncate">Thêm địa chỉ</p>
+              </div>
             </button>
-            <button className="flex-1 flex flex-col items-center justify-center p-3 bg-white border border-slate-200 rounded-2xl hover:border-indigo-500 hover:bg-indigo-50/50 transition-all">
-              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center mb-2">
+            <button className="flex-1 flex items-center gap-3 p-3.5 bg-slate-50 border border-slate-100 rounded-2xl hover:border-emerald-200 hover:bg-emerald-50/30 transition-all touch-bounce group">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
                 <Briefcase className="w-5 h-5 text-emerald-600" />
               </div>
-              <span className="text-sm font-medium text-slate-700">Văn phòng</span>
+              <div className="text-left flex-1 min-w-0">
+                <p className="text-sm font-bold text-slate-800">Văn phòng</p>
+                <p className="text-[11px] text-slate-400 truncate">Thêm địa chỉ</p>
+              </div>
             </button>
           </div>
         </div>
-      </BottomSheet>
+      </div>
     </div>
   );
 };

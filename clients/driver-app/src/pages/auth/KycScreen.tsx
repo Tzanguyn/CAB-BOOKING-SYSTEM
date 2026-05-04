@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Upload, CheckCircle2, Shield, AlertCircle } from 'lucide-react';
 import { useAuth } from '@shared/contexts/AuthContext';
 import showToast from '@shared/components/Toast';
+import { driverApiService } from '../../services/driverService';
 
 const KycScreen = () => {
   const navigate = useNavigate();
@@ -14,6 +15,20 @@ const KycScreen = () => {
     licenseBack: false,
     vehicleRegistration: false,
   });
+  
+  const [vehicleInfo, setVehicleInfo] = useState({
+    make: '',
+    model: '',
+    year: new Date().getFullYear().toString(),
+    color: '',
+    licensePlate: '',
+    licenseNumber: ''
+  });
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setVehicleInfo(prev => ({ ...prev, [name]: value }));
+  };
 
   const handleMockUpload = (type: keyof typeof documents) => {
     // Simulate upload delay
@@ -25,18 +40,41 @@ const KycScreen = () => {
 
   const allUploaded = documents.licenseFront && documents.licenseBack && documents.vehicleRegistration;
 
+  const isFormValid = vehicleInfo.make && vehicleInfo.model && vehicleInfo.licensePlate && vehicleInfo.licenseNumber;
+
   const handleSubmit = async () => {
-    if (!allUploaded) return;
+    if (!allUploaded || !isFormValid) {
+      showToast.error('Vui lòng điền đầy đủ thông tin');
+      return;
+    }
     
     setIsSubmitting(true);
     try {
-      // Mock API call to approve KYC instantly for demo purposes
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Call real API
+      await driverApiService.createProfile({
+        driverId: user?.id,
+        firstName: user?.name?.split(' ')[0] || 'Tài xế',
+        lastName: user?.name?.split(' ').slice(1).join(' ') || 'CAB',
+        email: user?.email,
+        phone: user?.phone || `09${Math.floor(10000000 + Math.random() * 90000000)}`,
+        dateOfBirth: '1990-01-01', // Mock or add to form
+        licenseNumber: vehicleInfo.licenseNumber,
+        licenseExpiryDate: '2030-01-01',
+        vehicle: {
+          make: vehicleInfo.make,
+          model: vehicleInfo.model,
+          year: parseInt(vehicleInfo.year) || 2020,
+          color: vehicleInfo.color || 'Trắng',
+          licensePlate: vehicleInfo.licensePlate
+        }
+      });
+
       await updateProfile({ isVerified: true });
-      showToast.success('Hồ sơ đã được duyệt!');
+      showToast.success('Hồ sơ đã được duyệt và lưu trữ!');
       navigate('/driver/home');
     } catch (error) {
-      showToast.error('Có lỗi xảy ra, vui lòng thử lại');
+      console.error(error);
+      showToast.error('Có lỗi xảy ra khi lưu hồ sơ');
     } finally {
       setIsSubmitting(false);
     }
@@ -64,6 +102,7 @@ const KycScreen = () => {
         <div className="flex items-center justify-center gap-2 mb-8">
           <div className={`h-2 flex-1 rounded-full ${step >= 1 ? 'bg-teal-500' : 'bg-slate-200'}`} />
           <div className={`h-2 flex-1 rounded-full ${step >= 2 ? 'bg-teal-500' : 'bg-slate-200'}`} />
+          <div className={`h-2 flex-1 rounded-full ${step >= 3 ? 'bg-teal-500' : 'bg-slate-200'}`} />
         </div>
 
         {step === 1 ? (
@@ -106,7 +145,7 @@ const KycScreen = () => {
               Tiếp tục
             </button>
           </div>
-        ) : (
+        ) : step === 2 ? (
           <div className="space-y-4 animate-fade-in">
             <h2 className="text-lg font-semibold text-slate-800">Giấy đăng ký xe (Cà vẹt)</h2>
             
@@ -130,8 +169,55 @@ const KycScreen = () => {
                 Quay lại
               </button>
               <button 
+                onClick={() => setStep(3)}
+                disabled={!allUploaded}
+                className="flex-[2] py-4 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl disabled:opacity-50 transition-colors"
+              >
+                Tiếp tục
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4 animate-fade-in">
+            <h2 className="text-lg font-semibold text-slate-800">Thông tin phương tiện</h2>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Số GPLX</label>
+                <input type="text" name="licenseNumber" value={vehicleInfo.licenseNumber} onChange={handleInputChange} placeholder="VD: 790123456789" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition-all" />
+              </div>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Hãng xe</label>
+                  <input type="text" name="make" value={vehicleInfo.make} onChange={handleInputChange} placeholder="VD: Toyota" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition-all" />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Dòng xe</label>
+                  <input type="text" name="model" value={vehicleInfo.model} onChange={handleInputChange} placeholder="VD: Vios" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition-all" />
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Biển số xe</label>
+                  <input type="text" name="licensePlate" value={vehicleInfo.licensePlate} onChange={handleInputChange} placeholder="VD: 51F-123.45" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition-all font-bold uppercase" />
+                </div>
+                <div className="w-1/3">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Màu sắc</label>
+                  <input type="text" name="color" value={vehicleInfo.color} onChange={handleInputChange} placeholder="VD: Trắng" className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition-all" />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-8">
+              <button 
+                onClick={() => setStep(2)}
+                className="flex-1 py-4 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl transition-colors"
+              >
+                Quay lại
+              </button>
+              <button 
                 onClick={handleSubmit}
-                disabled={!allUploaded || isSubmitting}
+                disabled={!isFormValid || isSubmitting}
                 className="flex-[2] py-4 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl disabled:opacity-50 transition-colors flex justify-center items-center gap-2"
               >
                 {isSubmitting ? (

@@ -93,6 +93,39 @@ const initializeApp = async() => {
         authEvents = new AuthEvents(authService);
         await authEvents.initialize();
 
+        // --- SEED ADMIN USER ---
+        try {
+            const adminEmail = process.env.ADMIN_EMAIL || 'admin@cab-booking.com';
+            const adminPassword = process.env.ADMIN_PASSWORD || 'AdminPassword123!';
+            
+            const existingAdmin = await authService.userRepository.findByEmail(adminEmail);
+            if (!existingAdmin) {
+                console.log(`[Seed] Creating default admin account: ${adminEmail}`);
+                const adminData = {
+                    email: adminEmail,
+                    password: adminPassword,
+                    firstName: 'System',
+                    lastName: 'Admin',
+                    role: 'admin',
+                    phone: '0999999999'
+                };
+                
+                const deviceInfo = { fingerprint: 'system-seed', ip: '127.0.0.1', userAgent: 'system' };
+                const result = await authService.register(adminData, deviceInfo);
+                
+                // Auto-verify the admin account
+                if (result.user && result.user.id) {
+                    await authService.userRepository.verifyEmail(result.user.id);
+                    console.log(`[Seed] Admin account ${adminEmail} created and verified successfully.`);
+                }
+            } else {
+                console.log(`[Seed] Admin account ${adminEmail} already exists.`);
+            }
+        } catch (seedError) {
+            console.error('[Seed] Error seeding admin user:', seedError.message);
+        }
+        // ------------------------
+
         console.log('✅ Auth Service initialized successfully');
 
     } catch (error) {

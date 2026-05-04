@@ -24,8 +24,10 @@ class DriverService {
   }
 
   async updateDriverLocation(driverId, lat, lng) {
-    await this.repo.updateDriverLocation(driverId, lat, lng);
-    return { driverId, lat, lng };
+    const numLat = Number(lat);
+    const numLng = Number(lng);
+    await this.repo.updateDriverLocation(driverId, numLat, numLng);
+    return { driverId, lat: numLat, lng: numLng };
   }
 
   async findNearbyDrivers(lat, lng, radius) {

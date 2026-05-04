@@ -31,7 +31,7 @@ const DriverRegisterPage = () => {
         firstName: data.firstName, lastName: data.lastName,
         phone: data.phone, role: 'driver',
       });
-      navigate('/driver/verify-email', { state: { email: data.email } });
+      navigate('/driver/login');
     } catch {
       // handled by toast
     } finally {
@@ -103,7 +103,7 @@ const DriverRegisterPage = () => {
               <label htmlFor="drv-password" className="block text-sm font-medium text-slate-300 mb-1.5">Mật khẩu</label>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <input id="drv-password" type="password" placeholder="Ít nhất 6 ký tự"
+                <input id="drv-password" type="password" placeholder="Ít nhất 8 ký tự"
                   className={`w-full pl-10 pr-4 py-2.5 bg-slate-800/80 border rounded-xl text-white text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${errors.password ? 'border-red-500/60' : 'border-slate-700'}`}
                   {...register('password')} />
               </div>

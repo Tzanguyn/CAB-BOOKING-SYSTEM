@@ -68,6 +68,19 @@ class DriverRepository {
         $9,$10,$11,
         $12,$13,'offline'
       )
+      ON CONFLICT (driver_id) DO UPDATE SET
+        first_name = EXCLUDED.first_name,
+        last_name = EXCLUDED.last_name,
+        email = EXCLUDED.email,
+        phone = EXCLUDED.phone,
+        date_of_birth = EXCLUDED.date_of_birth,
+        license_number = EXCLUDED.license_number,
+        license_expiry_date = EXCLUDED.license_expiry_date,
+        vehicle_make = EXCLUDED.vehicle_make,
+        vehicle_model = EXCLUDED.vehicle_model,
+        vehicle_year = EXCLUDED.vehicle_year,
+        vehicle_color = EXCLUDED.vehicle_color,
+        license_plate = EXCLUDED.license_plate
       RETURNING *;
     `;
 
@@ -120,20 +133,42 @@ class DriverRepository {
 
   async updateDriverLocation(driverId, lat, lng) {
     if (!redisClient) return;
-    await redisClient.geoAdd(
-      'drivers:geo',
-      { longitude: lng, latitude: lat, member: driverId }
-    );
+    try {
+      const numLat = Number(lat);
+      const numLng = Number(lng);
+      if (!Number.isFinite(numLat) || !Number.isFinite(numLng)) {
+        console.warn(`⚠️ Invalid coordinates for driver ${driverId}: lat=${lat}, lng=${lng}`);
+        return;
+      }
+      await redisClient.geoAdd(
+        'drivers:geo',
+        { longitude: numLng, latitude: numLat, member: String(driverId) }
+      );
+    } catch (err) {
+      console.warn(`⚠️ Redis geoAdd error for driver ${driverId}:`, err.message);
+    }
   }
 
   async findNearbyDrivers(lat, lng, radiusKm = 5) {
     if (!redisClient) return [];
-    return await redisClient.geoRadius(
-      'drivers:geo',
-      { longitude: lng, latitude: lat },
-      radiusKm,
-      'km'
-    );
+    try {
+      const numLat = Number(lat);
+      const numLng = Number(lng);
+      const numRadius = Number(radiusKm);
+      if (!Number.isFinite(numLat) || !Number.isFinite(numLng) || !Number.isFinite(numRadius)) {
+        console.warn(`⚠️ Invalid params for findNearbyDrivers: lat=${lat}, lng=${lng}, radius=${radiusKm}`);
+        return [];
+      }
+      return await redisClient.geoRadius(
+        'drivers:geo',
+        { longitude: numLng, latitude: numLat },
+        numRadius,
+        'km'
+      );
+    } catch (err) {
+      console.warn(`⚠️ Redis geoRadius error:`, err.message);
+      return [];
+    }
   }
 }
 

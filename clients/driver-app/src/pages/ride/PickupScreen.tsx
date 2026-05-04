@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { User, Phone, MessageSquare, Navigation, MapPin } from 'lucide-react';
+import { User, Phone, MessageSquare, MapPin } from 'lucide-react';
 import { useDriverStore } from '../../store/driverStore';
 import { driverApiService } from '../../services/driverService';
 import { useSocket } from '@shared/contexts/SocketContext';
 import showToast from '@shared/components/Toast';
+import { VoiceNavWidget } from '../../components/VoiceNavWidget';
+import { useAuth } from '@shared/contexts/AuthContext';
+import { routeService } from '../../services/routeService';
 
 const createDotIcon = (color: string) => L.divIcon({
   html: `<div class="w-4 h-4 rounded-full border-2 border-white shadow-md ${color}"></div>`,
@@ -34,13 +37,23 @@ const MapBoundsUpdater = ({ positions }: { positions: [number, number][] }) => {
 
 const PickupScreen = () => {
   const navigate = useNavigate();
-  const { activeRide, rideStatus, currentLocation, markAsPickedUp, resetRide } = useDriverStore();
+  const { activeRide, rideStatus, currentLocation, markAsPickedUp, resetRide, setCurrentLocation } = useDriverStore();
   const { socket } = useSocket();
+  const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [routePath, setRoutePath] = useState<[number, number][]>([]);
 
   useEffect(() => {
-    if (rideStatus !== 'PICKING_UP' || !activeRide || !currentLocation) {
+    if (rideStatus === 'IDLE' || !activeRide || !currentLocation) {
       navigate('/driver/home');
+      return;
+    }
+    
+    if (routePath.length === 0) {
+      routeService.getRoutePath(
+        { lat: currentLocation.lat, lng: currentLocation.lng },
+        { lat: activeRide.pickup.lat, lng: activeRide.pickup.lng }
+      ).then(path => setRoutePath(path));
     }
     
     // Simulate customer cancellation
@@ -57,36 +70,100 @@ const PickupScreen = () => {
     return () => {
       if (socket) socket.off('booking.cancelled');
     };
-  }, [rideStatus, activeRide, currentLocation, navigate, socket, resetRide]);
+  }, [rideStatus, activeRide, navigate, socket, resetRide]);
+
+  // Simulation: Move vehicle towards pickup location along the route
+  useEffect(() => {
+    if (!activeRide || rideStatus !== 'PICKING_UP' || routePath.length === 0) return;
+
+    let simulationInterval: number;
+    let currentStepIndex = 0;
+    
+    // We want the simulation to take about 30 steps (~1 minute)
+    const stepIncrement = Math.max(1, Math.ceil(routePath.length / 30));
+
+    simulationInterval = window.setInterval(() => {
+      if (currentStepIndex < routePath.length) {
+        const [currentLat, currentLng] = routePath[currentStepIndex];
+        
+        setCurrentLocation(currentLat, currentLng);
+        
+        // Emit location update to socket so customer app can track
+        if (socket) {
+          socket.emit('driver.location.updated', {
+            driverId: user?.id || '',
+            lat: currentLat,
+            lng: currentLng,
+            heading: 0
+          });
+
+          // If reached destination, notify customer that driver has arrived
+          if (currentStepIndex + stepIncrement >= routePath.length) {
+            socket.emit('ride:status:change', {
+              bookingId: activeRide.id,
+              booking_id: activeRide.id,
+              status: 'ARRIVED'
+            });
+            showToast.success('Đã đến điểm đón khách');
+          }
+        }
+        
+        currentStepIndex += stepIncrement;
+      } else {
+        // Move to the exact final destination
+        setCurrentLocation(activeRide.pickup.lat, activeRide.pickup.lng);
+        clearInterval(simulationInterval);
+      }
+    }, 2000);
+
+    return () => {
+      if (simulationInterval) clearInterval(simulationInterval);
+    };
+  }, [activeRide, rideStatus, socket, user?.id, setCurrentLocation, routePath]); // Start simulation once routePath is available
+
+
 
   const handlePickedUp = async () => {
     if (!activeRide) return;
     setIsProcessing(true);
     try {
       await driverApiService.markPickedUp(activeRide.id);
-      markAsPickedUp(); // Change status to IN_PROGRESS
-      navigate('/driver/in-progress');
-    } catch (error) {
-      showToast.error('Lỗi khi cập nhật trạng thái');
-    } finally {
-      setIsProcessing(false);
+      console.log('[PickupScreen] markPickedUp API success');
+    } catch (error: any) {
+      // Log but don't block the flow - API might fail due to network/state issues
+      // but we still want to proceed with the ride
+      console.error('[PickupScreen] markPickedUp error:', error?.response?.status, error?.response?.data || error?.message);
+      const msg = error?.response?.data?.message || error?.message || 'Lỗi khi cập nhật trạng thái';
+      showToast.error(msg);
     }
+    
+    // Always emit socket event and navigate regardless of API result
+    // This ensures customer app gets notified even if booking-service has issues
+    if (socket) {
+      socket.emit('ride:status:change', {
+        bookingId: activeRide.id,
+        booking_id: activeRide.id,
+        status: 'IN_PROGRESS',
+      });
+    }
+    
+    markAsPickedUp(); // Change local status to IN_PROGRESS
+    showToast.success('Đã đón khách thành công!');
+    setIsProcessing(false);
+    navigate('/driver/in-progress');
   };
 
   if (!activeRide || !currentLocation) return null;
 
   return (
     <div className="h-screen flex flex-col bg-slate-900 relative">
-      {/* Top Banner */}
-      <div className="absolute top-4 left-4 right-4 z-[400] bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-600/30 p-4 flex items-center justify-between text-white">
-        <div>
-          <h2 className="font-bold text-lg">Đón khách</h2>
-          <p className="text-indigo-200 text-sm">{activeRide.distanceKm} km • {activeRide.etaToPickup} phút</p>
-        </div>
-        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur">
-          <Navigation className="w-6 h-6 rotate-45" />
-        </div>
-      </div>
+      {/* Voice Navigation Widget replacing static Top Banner */}
+      <VoiceNavWidget 
+        destinationAddress={activeRide.pickup.address}
+        distanceLeft={`${activeRide.distanceKm} km`}
+        etaMinutes={activeRide.etaToPickup || 5}
+        isPickingUp={true}
+      />
 
       {/* Map */}
       <div className="flex-1 w-full relative z-[0]">
@@ -107,8 +184,8 @@ const PickupScreen = () => {
           <Marker position={[activeRide.pickup.lat, activeRide.pickup.lng]} icon={createDotIcon('bg-indigo-500')} />
           
           <Polyline 
-            positions={[[currentLocation.lat, currentLocation.lng], [activeRide.pickup.lat, activeRide.pickup.lng]]} 
-            color="#6366f1" weight={4} dashArray="10, 10" 
+            positions={routePath.length > 0 ? routePath : [[currentLocation.lat, currentLocation.lng], [activeRide.pickup.lat, activeRide.pickup.lng]]} 
+            color="#6366f1" weight={4} opacity={0.8} 
           />
         </MapContainer>
       </div>

@@ -92,41 +92,20 @@ const EarningsScreen = () => {
           </button>
         </div>
 
-        {/* History List */}
-        <div className="flex-1 overflow-y-auto mb-6">
-          <h3 className="font-bold text-slate-800 mb-4 px-1">Lịch sử chuyến đi</h3>
-          <div className="space-y-3">
-            {loading ? (
-              [1, 2, 3].map(i => <div key={i} className="w-full h-24 bg-slate-200 animate-pulse rounded-2xl" />)
-            ) : data.history.length > 0 ? (
-              data.history.map((item: any) => (
-                <div key={item.id} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs text-slate-400 font-medium">
-                      {new Date(item.date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                    <span className="font-bold text-emerald-600">+{item.amount.toLocaleString('vi-VN')}đ</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-700">
-                    <div className="flex flex-col items-center">
-                      <div className="w-2 h-2 rounded-full bg-indigo-400" />
-                      <div className="w-0.5 h-3 bg-slate-200 my-0.5" />
-                      <div className="w-2 h-2 rounded-none bg-emerald-400" />
-                    </div>
-                    <div className="flex-1 truncate">
-                      <p className="truncate text-xs mb-1.5">{item.pickup}</p>
-                      <p className="truncate text-xs">{item.dropoff}</p>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-10">
-                <MapPin className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-slate-500 text-sm">Chưa có chuyến đi nào</p>
-              </div>
-            )}
-          </div>
+        {/* History List Link */}
+        <div className="flex-1 mb-6">
+          <button 
+            onClick={() => navigate('/driver/history')}
+            className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-4 rounded-xl flex items-center justify-between px-6 transition-colors active:scale-[0.98]"
+          >
+            <div className="flex items-center gap-3">
+              <MapPin className="w-5 h-5" />
+              <span>Xem lịch sử chuyến đi</span>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
+              <ArrowLeft className="w-4 h-4 rotate-180" />
+            </div>
+          </button>
         </div>
 
         <button 

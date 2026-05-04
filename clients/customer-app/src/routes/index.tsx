@@ -132,6 +132,12 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
 
+      <Route path="/customer/wallet" element={
+        <ProtectedRoute>
+          <ProfileScreen />
+        </ProtectedRoute>
+      } />
+
       {/* Default redirects */}
       <Route path="/customer/booking" element={<Navigate to="/customer/home" />} />
       <Route path="/" element={<Navigate to="/customer/home" />} />

@@ -93,7 +93,7 @@ const validateBookingCreate = (req, res, next) => {
 };
 
 const validateBookingConfirm = (req, res, next) => {
-    const { driverId, rideId } = req.body;
+    const { driverId } = req.body;
 
     if (!driverId) {
         return res.status(400).json({
@@ -102,11 +102,9 @@ const validateBookingConfirm = (req, res, next) => {
         });
     }
 
-    if (!rideId) {
-        return res.status(400).json({
-            success: false,
-            message: 'rideId is required'
-        });
+    // Auto-generate rideId if not provided
+    if (!req.body.rideId) {
+        req.body.rideId = `RIDE-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     }
 
     next();

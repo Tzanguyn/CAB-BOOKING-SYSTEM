@@ -157,7 +157,7 @@ const RegisterPage = () => {
                   id="reg-password"
                   type="password"
                   autoComplete="new-password"
-                  placeholder="Ít nhất 6 ký tự"
+                  placeholder="Ít nhất 8 ký tự"
                   className={`w-full pl-10 pr-4 py-2.5 bg-slate-800/80 border rounded-xl text-white text-sm placeholder:text-slate-500 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
                     errors.password ? 'border-red-500/60' : 'border-slate-700'
                   }`}

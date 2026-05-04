@@ -2,13 +2,14 @@
 import axios from 'axios';
 
 const axiosClient = axios.create({
-    baseURL: import.meta.env.VITE_API_URL, 
+    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
+    timeout: 15000,
     headers: {
         'Content-Type': 'application/json',
     },
 });
 
-// --- Interceptor Request: Giữ nguyên ---
+// --- Interceptor Request: Attach token ---
 axiosClient.interceptors.request.use(async (config) => {
     const token = localStorage.getItem('accessToken');
     if (token) {
@@ -17,7 +18,7 @@ axiosClient.interceptors.request.use(async (config) => {
     return config;
 });
 
-// --- Interceptor Response: Nâng cấp xử lý lỗi ---
+// --- Interceptor Response: Refresh token on 401 ---
 axiosClient.interceptors.response.use(
     (response) => {
         if (response && response.data) {
@@ -25,26 +26,63 @@ axiosClient.interceptors.response.use(
         }
         return response;
     },
-    (error) => {
-        // Xử lý lỗi từ Backend trả về
-        const { status } = error.response || {};
-
-        // 🚨 CHẶN NGAY: Nếu lỗi 401 (Unauthorized)
-        if (status === 401) {
-            console.warn("Token không hợp lệ hoặc hết hạn. Đang đăng xuất...");
-
-            // 1. Xóa sạch dữ liệu trong LocalStorage
+    async (error) => {
+        const originalRequest = error.config;
+        
+        // Handle Refresh Token on 401 (Unauthorized)
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true;
+            try {
+                const refreshToken = localStorage.getItem('refreshToken');
+                if (refreshToken) {
+                    const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+                    const response = await axios.post(`${baseURL}/auth/refresh-token`, { refreshToken });
+                    
+                    const { accessToken, refreshToken: newRefreshToken } = response.data;
+                    
+                    // Save new tokens
+                    localStorage.setItem('accessToken', accessToken);
+                    localStorage.setItem('refreshToken', newRefreshToken);
+                    
+                    // Update header and retry original request
+                    originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+                    return axiosClient(originalRequest);
+                }
+            } catch (refreshError) {
+                console.warn("Refresh token failed. Logging out...");
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('refreshToken');
+                localStorage.removeItem('user');
+                
+                // Detect which app we're in based on current path
+                const path = window.location.pathname;
+                if (path.startsWith('/driver')) {
+                    window.location.href = '/driver/login';
+                } else if (path.startsWith('/admin')) {
+                    window.location.href = '/admin/login';
+                } else {
+                    window.location.href = '/customer/login';
+                }
+                return Promise.reject(refreshError);
+            }
+        }
+        
+        // Token expired with no refresh available
+        if (error.response?.status === 401) {
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
-            localStorage.removeItem('user'); // Xóa cả info user nếu có lưu
+            localStorage.removeItem('user');
 
-            // 2. Đá văng về trang Login
-            // Lưu ý: Ở đây không dùng được hook useNavigate của React vì đây là file .ts thường
-            // Nên dùng window.location.href để ép tải lại trang sạch sẽ
-            window.location.href = '/customer/login';
+            const path = window.location.pathname;
+            if (path.startsWith('/driver')) {
+                window.location.href = '/driver/login';
+            } else if (path.startsWith('/admin')) {
+                window.location.href = '/admin/login';
+            } else {
+                window.location.href = '/customer/login';
+            }
         }
 
-        // Nếu là các lỗi khác (500, 403...) thì ném ra cho component tự xử lý (hiện thông báo)
         return Promise.reject(error);
     }
 );

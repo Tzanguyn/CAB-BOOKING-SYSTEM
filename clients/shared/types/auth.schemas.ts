@@ -19,7 +19,7 @@ export const registerSchema = z.object({
     .email('Email không hợp lệ'),
   password: z
     .string()
-    .min(6, 'Mật khẩu phải có ít nhất 6 ký tự')
+    .min(8, 'Mật khẩu phải có ít nhất 8 ký tự')
     .max(128, 'Mật khẩu quá dài'),
   confirmPassword: z
     .string()
@@ -61,9 +61,8 @@ export const adminLoginSchema = z.object({
     .min(1, 'Mật khẩu không được để trống'),
   mfaCode: z
     .string()
-    .length(6, 'Mã MFA phải có 6 chữ số')
-    .regex(/^\d{6}$/, 'Mã MFA chỉ gồm chữ số')
-    .optional(),
+    .optional()
+    .refine((val) => !val || /^\d{6}$/.test(val), 'Mã MFA phải có 6 chữ số'),
 });
 
 // Type inference from schemas

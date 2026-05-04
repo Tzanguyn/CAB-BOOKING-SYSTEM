@@ -35,7 +35,8 @@ interface BookingState {
   
   // Active Ride Data
   status: RideStatus;
-  bookingId: string | null;
+  bookingId: string | null;       // MongoDB _id
+  bookingCode: string | null;     // Custom BKG-xxx format
   rideId: string | null;
   driver: DriverData | null;
   eta: number | null; // minutes
@@ -45,6 +46,7 @@ interface BookingState {
   setDropoff: (loc: LocationData | null) => void;
   setRideOptions: (type: string, price: number, surge: number, distance: number) => void;
   setStatus: (status: RideStatus) => void;
+  setBookingIds: (mongoId: string, bookingCode: string | null) => void;
   setActiveRide: (bookingId: string, rideId: string | null, driver: DriverData | null) => void;
   updateDriverLocation: (lat: number, lng: number) => void;
   setEta: (minutes: number) => void;
@@ -62,6 +64,7 @@ export const useBookingStore = create<BookingState>((set) => ({
   
   status: 'IDLE',
   bookingId: null,
+  bookingCode: null,
   rideId: null,
   driver: null,
   eta: null,
@@ -71,6 +74,7 @@ export const useBookingStore = create<BookingState>((set) => ({
   setRideOptions: (vehicleType, estimatedPrice, surgeMultiplier, distanceKm) => 
     set({ vehicleType, estimatedPrice, surgeMultiplier, distanceKm }),
   setStatus: (status) => set({ status }),
+  setBookingIds: (bookingId, bookingCode) => set({ bookingId, bookingCode }),
   setActiveRide: (bookingId, rideId, driver) => set({ bookingId, rideId, driver }),
   updateDriverLocation: (lat, lng) => set((state) => ({
     driver: state.driver ? { ...state.driver, location: { lat, lng } } : null
@@ -84,6 +88,7 @@ export const useBookingStore = create<BookingState>((set) => ({
     distanceKm: 0,
     status: 'IDLE',
     bookingId: null,
+    bookingCode: null,
     rideId: null,
     driver: null,
     eta: null

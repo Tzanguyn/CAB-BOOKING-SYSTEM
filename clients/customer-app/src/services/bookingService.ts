@@ -1,16 +1,13 @@
-import axios from 'axios';
-
-const GATEWAY_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-
+import axiosClient from '../api/axiosClient';
 export const bookingApiService = {
-  async getEstimate(distanceKm: number, vehicleType: string = 'standard') {
+  async getEstimate(distanceKm: number, vehicleType: string = 'standard'): Promise<any> {
     try {
-      const response = await axios.post(`${GATEWAY_URL}/api/pricing/estimate`, {
+      const response = await axiosClient.post(`/api/pricing/estimate`, {
         distance_km: distanceKm,
         vehicleType: vehicleType,
         demandLevel: 'normal',
       });
-      return response.data;
+      return response as any;
     } catch (error) {
       console.error('Estimate error:', error);
       // Fallback if service is down
@@ -22,38 +19,28 @@ export const bookingApiService = {
     }
   },
 
-  async getEta(distanceKm: number) {
+  async getEta(distanceKm: number): Promise<any> {
     try {
-      const response = await axios.post(`${GATEWAY_URL}/api/eta/estimate`, {
+      const response = await axiosClient.post(`/api/eta/estimate`, {
         distance_km: distanceKm,
         traffic_level: 0.5
       });
-      return response.data;
+      return response as any;
     } catch (error) {
       console.error('ETA error:', error);
       return { eta_minutes: Math.max(1, Math.round(distanceKm * 3)) };
     }
   },
 
-  async createBooking(data: any) {
-    const token = localStorage.getItem('accessToken');
-    const response = await axios.post(`${GATEWAY_URL}/api/bookings/`, data, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
-    return response.data;
+  async createBooking(data: any): Promise<any> {
+    const response = await axiosClient.post(`/api/bookings/`, data);
+    return response as any;
   },
 
-  async cancelBooking(bookingId: string) {
-    const token = localStorage.getItem('accessToken');
-    const response = await axios.post(`${GATEWAY_URL}/api/bookings/${bookingId}/cancel`, {
+  async cancelBooking(bookingId: string): Promise<any> {
+    const response = await axiosClient.post(`/api/bookings/${bookingId}/cancel`, {
       reason: 'Customer requested cancellation'
-    }, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
     });
-    return response.data;
+    return response as any;
   }
 };

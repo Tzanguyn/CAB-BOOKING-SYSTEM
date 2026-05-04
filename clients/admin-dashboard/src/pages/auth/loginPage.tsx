@@ -5,7 +5,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Mail, Lock, Shield, ArrowRight, KeyRound } from 'lucide-react';
 import { adminLoginSchema, type AdminLoginFormData } from '@shared/types/auth.schemas';
 import { useAuth } from '@shared/contexts/AuthContext';
-import showToast from '@shared/components/Toast';
 
 const AdminLoginPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -26,18 +25,18 @@ const AdminLoginPage = () => {
   const onSubmit = async (data: AdminLoginFormData) => {
     setIsSubmitting(true);
     try {
+      // Step 1: If MFA panel is shown, validate mfaCode format (optional, UI only for now)
+      // In production, MFA would be verified server-side via a dedicated endpoint
+
       if (!showMFA) {
-        // Step 1: Validate email/password first
-        // In production, this would be a separate MFA challenge endpoint
+        // Show MFA input step
         setShowMFA(true);
         setIsSubmitting(false);
         return;
       }
 
-      // Step 2: Login with email/password (MFA verified client-side for now)
+      // Step 2: Perform actual login
       await login(data.email, data.password);
-
-      showToast.success('Đăng nhập Admin thành công!');
       navigate('/admin/dashboard');
     } catch {
       // Error handled by toast

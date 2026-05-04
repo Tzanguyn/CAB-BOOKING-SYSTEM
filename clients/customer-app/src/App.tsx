@@ -3,24 +3,32 @@ import { AuthProvider } from "@shared/contexts/AuthContext";
 import { SocketProvider } from "@shared/contexts/SocketContext";
 import AppRoutes from "./routes";
 import { Toaster } from "react-hot-toast";
+import BottomNavBar from "./components/common/BottomNavBar";
 
 import { ErrorBoundary, OfflineDetector } from '@shared/components';
 
 function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
+      <AuthProvider loginPath="/customer/login">
         <SocketProvider autoConnect>
           <BrowserRouter>
             <OfflineDetector />
             <AppRoutes />
+            <BottomNavBar />
             <Toaster
-              position="top-right"
+              position="top-center"
               toastOptions={{
                 duration: 4000,
                 style: {
-                  background: '#363636',
-                  color: '#fff',
+                  background: '#1e293b',
+                  color: '#f8fafc',
+                  borderRadius: '16px',
+                  padding: '12px 20px',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+                  maxWidth: '360px',
                 },
                 success: {
                   duration: 3000,

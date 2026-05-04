@@ -1,0 +1,1036 @@
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  CAB  BOOKING  SYSTEM  
+Aims : Microservices – Real -time – Event -driven – AI-enabled – Zero Trust  Architecture  
+ 
+Tóm t ắt (Abstract)  
+Tài li ệu này trình bày vi ệc phân tích, thi ết kế và đánh giá m ột hệ thống ứng dụng đặt xe taxi hi ện 
+đại dựa trên ki ến trúc Microservices, đáp ứng các yêu c ầu về khả năng m ở rộng, đ ộ tin cậy, xử lý 
+thời gian th ực, bảo mật theo mô hình Zero Trust và tích h ợp t rí tuệ nhân t ạo. Hệ thống đư ợc thiết 
+kế hướng cloud -native, s ử dụng các công ngh ệ phổ biến trong công nghi ệp nhằm đảm bảo tính 
+khả thi tri ển khai th ực tế. 
+Technology Stack : 
+Back -end: NodeJS / ExpressJS / NestJS  
+Front -end: React JS / Next JS + Tailwind CSS  
+Deployment: AWS Cloud / Terraform/ Kubernetes  
+Event -driven: Kafka, RabbitMQ  
+Communication: gRPC, restful api  
+Real-time: web socket , hook  
+Security: Zero trust Architecture  
+Monitor: Grafana Prometheus  
+Logging: ELK  
+ 
+Mục lục (Table of Contents)  
+1. Giới thiệu 
+2. Phân tích bài toán & yêu c ầu hệ thống 
+3. Tổng quan ki ến trúc h ệ thống 
+4. Kiến trúc Microservices  
+5. Kiến trúc Real -time & Event -driven  
+6. Kiến trúc AI & Intelligent Services  
+7. Kiến trúc b ảo mật (Zero Trust Architecture)  
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  8. Kiến trúc m ở rộng & ch ịu lỗi (Scalability & Resilience)  
+9. Thiết kế chi ti ết (Sequence Diagrams)  
+10. Thiết kế dữ liệu (ERD)  
+11. API Specification (OpenAPI)  
+12. Failure Scenarios & Recovery Strategies  
+13. Saga Pattern cho Payment  
+14. Stack công ngh ệ & Chi phí tri ển khai  
+15. Kết luận 
+ 
+THIẾT KẾ KIẾN TRÚC H Ệ THỐNG ỨNG D ỤNG Đ ẶT XE TAXI  
+CAB  BOOKING  SYSTEM  
+ 
+Tóm t ắt điều hành (Executive Summary)  
+Tài li ệu này mô t ả thiết kế kiến trúc hoàn ch ỉnh cho h ệ thống ứng dụng đặt xe Taxi (CAB 
+Booking System) xây d ựng theo kiến trúc Microservices , sử dụng Node.js  cho backend và 
+React.js  cho frontend. H ệ thống đư ợc thiết kế để đáp ứng các yêu c ầu real-time , mở rộng lớn, 
+chịu lỗi cao , bảo mật, và s ẵn sàng tri ển khai trên Docker Swarm  / Cloud & Kubernetes . 
+Tài li ệu phù h ợp để sử dụng cho:  
+• Hồ sơ thiết kế hệ thống (System Design Document)  
+• Khóa lu ận tốt nghi ệp đại học chuyên ngành H ệ thống thông tin  
+• Tài li ệu kỹ thuật cho team phát tri ển & v ận hành  
+ 
+1. Tổng quan h ệ thống 
+Hệ thống CAB Booking là n ền tảng kết nối khách hàng – tài xế – nhà v ận hành  theo th ời gian 
+thực, hỗ trợ: 
+• Đặt xe 
+• Định vị GPS real -time 
+• Ghép tài x ế thông minh  
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  • Thanh toán  
+• Đánh giá & qu ản trị 
+Kiến trúc áp d ụng Microservices + Event -driven , cho phép t ừng dịch vụ mở rộng độc lập và 
+giảm ph ụ thuộc lẫn nhau.  
+ 
+2. Mục tiêu & Nguyên t ắc thiết kế 
+2.1 Mục tiêu  
+• Scalability: m ở rộng theo lưu lư ợng 
+• High Availability: h ệ thống luôn s ẵn sàng  
+• Fault Tolerance: không có single point of failure  (SPOF) 
+• Real-time: c ập nhật trạng thái & v ị trí tức thời 
+• Cloud -native: Docker container  / Pod , orchestration  (Docker Swarm / Kubernetes ), 
+CI/CD  (Github Action)  
+2.2 Nguyên t ắc kiến trúc  
+• Database per service  
+• Stateless services  
+• Async -first (Event -driven)  
+• Zero trust security  
+• Observability by design  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  3. Kiến trúc t ổng th ể (Overall Architecture)  
+3.1 Kiến trúc t ổng th ể – Microservices  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  4. Kiến trúc tri ển khai (Deployment Architecture)  
+Hệ thống đư ợc triển khai trên Docker Swarm on VirtualBox  / Cloud + Terraform + 
+Kubernetes , hỗ trợ multi -region và auto -scaling.  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  5. Kiến trúc Real -time & Event -driven  
+ 
+ 
+6. Kiến trúc b ảo mật & Zero Trust (Security / Zero Trust Architecture)  
+6.1 Nguyên lý Zero Trust áp d ụng 
+Kiến trúc b ảo mật của hệ thống CAB Booking đư ợc thiết kế theo mô hình Zero Trust , với 
+nguyên t ắc cốt lõi:  
+• Never trust, always verify  
+• Mọi request đ ều phải được xác th ực và ủy quy ền 
+• Không gi ả định an toàn dù request đ ến từ mạng nội bộ 
+Zero Trust đư ợc áp d ụng xuyên su ốt từ Client → Gateway → Microservices → Data . 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  6.2 Sơ đ ồ kiến trúc Zero Trust  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  6.3 Bảo mật tầng Client & Edge  
+• HTTPS/TLS 1.3 b ắt buộc 
+• WAF ch ống: 
+o SQL Injection  
+o XSS 
+o DDoS layer 7  
+• Rate limiting theo IP / user / device  
+• Device fingerprinting (tu ỳ chọn) 
+ 
+6.4 API Gateway Security  
+API Gateway đóng vai trò Policy Enforcement Point (PEP) : 
+• Xác th ực JWT / OAuth2  
+• Kiểm tra scope, role, permission  
+• Rate limit & quota  
+• Request validation (schema)  
+• Chặn request b ất thường trư ớc khi vào service  
+ 
+6.5 Service -to-Service Security  
+• mTLS  cho toàn b ộ giao ti ếp nội bộ 
+• Mỗi service có service identity  riêng  
+• Áp d ụng thông qua:  
+o Service Mesh (Istio / Linkerd)  
+Lợi ích:  
+• Ngăn lateral movement  
+• Mutual authentication  
+• Encrypted traffic n ội bộ 
+ 
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  6.6 Authorization: RBAC & ABAC  
+• RBAC cho quy ền cơ b ản (Customer / Driver / Admin)  
+• ABAC cho ng ữ cảnh động: 
+o Thời gian  
+o Vị trí 
+o Trạng thái chuy ến đi 
+Ví dụ: Driver ch ỉ được cập nhật GPS khi ride đang ACTIVE  
+ 
+6.7 Identity & Access Management (IAM)  
+• Central Auth Service  
+• JWT ng ắn hạn + Refresh Token  
+• Token rotation  
+• Token revocation (Redis blacklist)  
+• MFA cho Admin  
+ 
+6.8 Secrets Management & Key Management  
+• Không hard -code secrets  
+• Sử dụng: 
+o HashiCorp Vault / Cloud Secret Manager  
+• Key rotation đ ịnh kỳ 
+• Mã hóa d ữ liệu nhạy cảm (PII, payment)  
+ 
+6.9 Data Security & Privacy  
+• Encryption at -rest & in -transit  
+• Masking d ữ liệu nhạy cảm 
+• Tách d ữ liệu theo service (database per service)  
+• Tuân th ủ: 
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  o GDPR / PDPA ( ở mức kiến trúc)  
+ 
+6.10 Audit, Logging & Threat Detection  
+• Audit log cho:  
+o Login  
+o Payment  
+o Permission change  
+• Centralized logging (ELK / OpenSearch)  
+• SIEM phát hi ện bất thường 
+• Alert real -time cho s ự cố bảo mật 
+ 
+6.11 Mapping Zero Trust → Failure Scenarios  
+Nguy cơ  Cơ ch ế Zero Trust  
+Token b ị lộ Token rotation + revoke  
+Service compromise  mTLS + isolation  
+Lateral movement  Service identity  
+Insider threat  Audit & SIEM  
+DDoS  WAF + rate limit  
+ 
+6.12 Đánh giá h ọc thu ật 
+Mô hình Zero Trust phù h ợp với hệ thống microservices phân tán , đặc biệt trong môi trư ờng 
+cloud, nơi ranh gi ới mạng truy ền thống không còn hi ệu quả. Việc áp d ụng Zero Trust giúp gi ảm 
+đáng k ể rủi ro t ấn công chu ỗi và tăng kh ả năng ki ểm soát truy c ập. 
+ 
+ 
+ 
+ 
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  7. Kiến trúc m ở rộng & ch ịu lỗi (Scalability & Resilience)  
+ 
+Áp d ụng các pattern:  
+• Horizontal Pod Autoscaling (HPA)  
+• Circuit Breaker  
+• Retry / Timeout  
+• Graceful Degradation  
+• Eventual Consistency  
+
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH   
+8. Kiến trúc AI & Machine Learning  
+ 
+Ứng dụng AI:  
+• Ghép tài x ế tối ưu 
+• Surge pricing  
+• Dự đoán ETA  
+• Gợi ý & phân tích hành vi  
+Các use -case AI chính  
+1. AI Driver Matching  
+o Chọn tài x ế tối ưu d ựa trên:  
+▪ Khoảng cách (GPS)  
+
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  ▪ Lịch sử chuy ến đi 
+▪ Rating & hành vi  
+2. Surge Pricing  
+o Giá đ ộng theo:  
+▪ Cung – cầu 
+▪ Thời gian, khu v ực 
+▪ Lịch sử dữ liệu 
+3. ETA Prediction  
+o Dự đoán th ời gian xe đ ến chính xác hơn  
+ 
+Kiến trúc AI trong sơ đ ồ 
+• AI/ML Layer : 
+o Matching Service  
+o Surge Pricing Model  
+o ETA Prediction Model  
+• ML Platform : 
+o Feature Store  
+o Model Training  
+o Model Serving API  
+• Data Sources : 
+o Trip History  
+o GPS / Location  
+o Rating & Feedback  
+ 
+ 
+ 
+ 
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  9. Sequence Diagram  
+9.1 Quy trình đ ặt xe end -to-end 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  9.2 Login & Refresh Token  
+ 
+Sequence Diagram này th ể hiện rõ 3 lu ồng quan tr ọng 
+     Login Flow  
+• User g ửi username/password  
+• API Gateway → Auth Service  
+• Auth Service:  
+o Verify DB / Identity Store  
+o Sinh Access Token (JWT)  + Refresh Token  
+o Lưu Refresh Token vào Redis  
+     Gọi API đư ợc bảo vệ 
+• User g ửi Access Token  
+
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  • Gateway xác th ực JWT v ới Auth Service  
+• Cho phép request đi ti ếp 
+     Refresh Token Flow  
+• Access Token h ết hạn 
+• User g ửi Refresh Token  
+• Auth Service:  
+o Kiểm tra Redis  
+o Rotate Refresh Token  (best practice)  
+• Trả về cặp token m ới 
+     Đây là chuẩn bảo mật enterprise  (OWASP khuy ến ngh ị), rất phù h ợp để: 
+• Giải thích ki ến trúc Security  
+• Bảo vệ hệ thống CAB real -time 
+9.3 Real -time GPS Update (Driver → Passenger)  
+ 
+Giải thích:   
+• Driver g ửi GPS đ ịnh kỳ qua WebSocket  
+• Ride Service c ập nhật Redis (Geo index) đ ể query nhanh  
+• Event đư ợc publish đ ể các service khác consume (ETA, AI, Monitoring)  
+• Passenger nh ận vị trí gần real -time (<1s latency)  
+
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  9.4 AI Driver Matching (Chi ti ết) 
+ 
+Giải thích chi ti ết: 
+• Redis Geo dùng đ ể lọc tài xế gần nh ất (hard constraint)  
+• Feature Store cung c ấp dữ liệu cho AI (rating, l ịch sử, ETA)  
+• AI Matching Service x ử lý soft constraints & scoring  
+• Kết quả được publish qua Kafka đ ể đảm bảo decoupling  
+• Cho phép fallback sang rule -based matching khi AI l ỗi 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  9.5 Payment Failure & Retry (Chi ti ết) 
+ 
+Giải thích:  
+• Áp d ụng Retry + Exponential Backoff  cho payment  
+• Payment Service là source of truth  cho tr ạng thái thanh toán  
+• Event -driven đ ảm bảo eventual consistency  
+• Không block lu ồng ngư ời dùng khi c ổng thanh toán ch ậm 
+• Cho phép m ở rộng sang nhi ều PSP (Stripe, VNPay, MoMo, …)  
+ 
+ 
+
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  9.5.1 Saga Pattern cho Payment (Hoàn ch ỉnh) 
+ 
+Đặc điểm Saga Payment:  
+• Saga choreography -based  (event -driven)  
+• Không s ử dụng distributed transaction (2PC)  
+• Mỗi bước có compensation action  rõ ràng  
+• Đảm bảo no double charge – no lost money  
+• Phù h ợp với payment real -world (PSP không reliable)  
+
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH   
+9.6 Surge Pricing Real -time (Chi ti ết) 
+ 
+Giải thích chi ti ết: 
+• Surge Pricing ch ạy near real -time , tách kh ỏi flow booking  
+• Redis lưu metrics cung/c ầu theo zone đ ể truy xu ất nhanh  
+• AI model x ử lý yếu tố thời gian, s ự kiện, lịch sử 
+• Kafka broadcast surge change cho cache, dashboard, analytics  
+• Đảm bảo giá nh ất quán  giữa estimate và booking  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  9.7 ETA Calculation Real -time (Chi ti ết) 
+ 
+Điểm ki ến trúc n ổi bật 
+• ETA là service đ ộc lập (xử lý tính toán đ ộc lập) → không block booking/matching  
+(tránh làm ch ậm booking ) 
+• GPS c ập nh ật event -driven  (Kafka) → real -time đúng nghĩa  
+• Redis làm hot -store  cho v ị trí & ETA (Redis  dùng cache ETA & v ị trí) → giảm latency  , 
+latency th ấp 
+• Tách routing & traffic  → dễ thay Google Map / Here / OSRM  
+• Mở đường cho AI ETA  (bias correction theo l ịch sử). Có th ể tích h ợp AI đ ể điều chỉnh 
+ETA theo l ịch sử. 
+ 
+9A. Thi ết kế UI/UX cho h ệ thống CAB Booking  
+Phần này b ổ sung thi ết kế UI/UX ở mức kiến trúc & wireframe , phục vụ mục tiêu:  
+• Hoàn ch ỉnh lu ận văn (end -to-end system)  
+• Chứng minh tính kh ả thi tri ển khai frontend  
+• Làm c ầu nối giữa kiến trúc backend và tr ải nghi ệm ngư ời dùng  
+Thiết kế UI tuân theo các nguyên t ắc: 
+• Mobile -first 
+• Real-time feedback  
+
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  • Role -based UI (Customer / Driver / Admin)  
+• Tối giản – dễ mở rộng 
+ 
+9A.1 T ổng quan các ứng dụng giao di ện 
+Ứng dụng Người dùng  Mục tiêu  
+Customer App  Hành khách  Đặt xe, theo dõi, thanh toán  
+Driver App  Tài x ế Nhận chuy ến, dẫn đường, thu nh ập 
+Admin Dashboard  Vận hành  Giám sát, c ấu hình, phân tích  
+ 
+9A.2 UI/UX – Customer App (Hành khách)  
+Phần này trình bày thiết kế UI chi ti ết ở mức màn hình & component , đủ để: 
+• Làm ph ụ lục thiết kế giao di ện cho lu ận văn  
+• Chuy ển trực tiếp sang Figma / React implementation  
+9A.2.1 Nguyên t ắc thiết kế 
+• Mobile -first (iOS / Android)  
+• One-hand usage  
+• Real-time feedback (GPS, ETA, price)  
+• Progressive disclosure ( ẩn bớt chi ti ết nâng cao)  
+ 
+9A.2.2 Danh sách màn hình Customer App  
+ID Màn hình  Mục tiêu  
+C1 Splash / Onboarding  Giới thiệu & quy ền truy c ập 
+C2 Login / Register  Xác th ực ngư ời dùng  
+C3 Home – Map & Pickup  Đặt điểm đón  
+C4 Destination  Nhập điểm đến 
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  ID Màn hình  Mục tiêu  
+C5 Ride Options  Chọn loại xe & giá  
+C6 Searching Driver  Matching real -time 
+C7 Ride Tracking  Theo dõi chuy ến đi 
+C8 Payment  Thanh toán  
+C9 Rating & Feedback  Đánh giá  
+C10 Ride History  Lịch sử 
+C11 Profile & Wallet  Thông tin cá nhân  
+ 
+9A.2.3 UI chi ti ết từng màn hình  
+C1 – Splash / Onboarding  
+• Logo trung tâm  
+• 3 slide gi ới thiệu (Book – Track – Pay) 
+• CTA: Get Started  
+Components:  
+• Carousel  
+• Primary Button  
+ 
+C2 – Login / Register  
+Layout:  
+• Phone / Email input  
+• OTP verification  
+• Social login (optional)  
+Components:  
+• InputField  
+• OTPInput  
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  • SubmitButton  
+API:  
+• Auth Service (Login / Refresh Token)  
+ 
+C3 – Home (Map & Pickup)  
+Layout:  
+• Full-screen Map  
+• Pickup pin (center)  
+• Bottom Sheet (collapsed)  
+Bottom Sheet content:  
+• Pickup address (auto -detect)  
+• Shortcut: Home / Work  
+• CTA: Set Destination  
+Components:  
+• MapView  
+• LocationSearch  
+• BottomSheet  
+WebSocket:  
+• Driver nearby  
+ 
+C4 – Destination Selection  
+Layout:  
+• Search bar  
+• Suggested places  
+• Recent destinations  
+Components:  
+• SearchInput  
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  • PlaceList  
+ 
+C5 – Ride Options & Pricing  
+Layout:  
+• Horizontal ride cards  
+• ETA + price  
+• Surge indicator  
+Ride Card:  
+• Vehicle icon  
+• Capacity  
+• ETA 
+• Price  
+Components:  
+• RideOptionCard  
+• PriceBreakdownModal  
+API:  
+• Pricing Service  
+• ETA Service  
+ 
+C6 – Searching Driver (Matching)  
+Layout:  
+• Map + animated ripple  
+• Status text  
+• Cancel button  
+States:   
+• Searching  
+• Driver Found  
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  WebSocket:  
+• Matching updates  
+ 
+C7 – Ride Tracking (In -progress)  
+Layout:  
+• Map (driver + route)  
+• Driver info card  
+• ETA live update  
+Driver Card:  
+• Avatar  
+• Rating  
+• Call / Chat  
+Components:  
+• DriverInfoCard  
+• LiveRouteMap  
+ 
+C8 – Payment  
+Layout:  
+• Fare summary  
+• Payment method selector  
+• Pay button  
+Methods:  
+• Cash  
+• Card  
+• Wallet  
+API:  
+• Payment Service  
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH   
+C9 – Rating & Feedback  
+Layout:  
+• Star rating  
+• Comment box  
+• Tip (optional)  
+Components:  
+• RatingStars  
+• TextArea  
+ 
+C10 – Ride History  
+Layout:  
+• List view  
+• Filter by date/status  
+Item:  
+• Date  
+• Route summary  
+• Amount  
+ 
+C11 – Profile & Wallet  
+Tabs:  
+• Profile  
+• Wallet  
+• Settings  
+Features:  
+• Saved locations  
+• Payment methods  
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  • Logout  
+ 
+9A.2.4 Lu ồng UI t ổng th ể (Customer Journey)  
+ 
+ 
+9A.2.5 Mapping UI Components → React Structure  
+ 
+ 
+9A.2.6 Đánh giá  
+Thiết kế UI Customer App đư ợc chi ti ết hóa đ ến mức component & API mapping , đảm bảo: 
+• Phù h ợp triển khai React / React Native  
+• Hỗ trợ real-time, AI matching, surge pricing  
+• Đủ chiều sâu cho ph ụ lục thiết kế giao di ện trong lu ận văn  
+
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH   
+9A.3 UI/UX – Driver App (Tài x ế) 
+Các màn hình chính  
+1. Login / KYC  
+2. Online / Offline toggle  
+3. Nhận chuy ến (Incoming request)  
+4. Dẫn đường tới điểm đón  
+5. Theo dõi chuy ến đi 
+6. Kết thúc & thu nh ập 
+7. Lịch sử chuy ến đi 
+Wireframe lu ồng Driver  
+ 
+Thành ph ần UI  
+• Map full -screen  
+• Accept / Reject CTA l ớn 
+• V oice navigation  
+• Real-time income widget  
+ 
+9A.4 UI/UX – Admin Dashboard  
+Các module chính  
+• Dashboard t ổng quan (KPI)  
+• Quản lý ngư ời dùng & tài x ế 
+• Quản lý chuy ến đi 
+• Giám sát real -time map  
+• Pricing & surge control  
+• Logs & audit  
+
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  Sơ đ ồ module Admin  
+ 
+ 
+9A.5 Mapping UI ↔ Backend Services  
+UI Action  API / Service  
+Login  Auth Service  
+Đặt xe Booking Service  
+Matching  AI Matching Service  
+Theo dõi GPS  Ride + WebSocket  
+ETA ETA Service  
+Thanh toán  Payment Service  
+Surge price  Pricing Service  
+ 
+9A.6 Công ngh ệ Frontend đ ề xuất 
+• ReactJS  / NextJS  + TypeScript  
+• React Query / Redux Toolkit  
+• Socket.IO client  
+• Mapbox / Google Maps SDK  
+
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  • Tailwind / MUI  
+• PWA / React Native (m ở rộng) 
+ 
+9A.7 Đánh giá h ọc thu ật 
+Thiết kế UI/UX đư ợc trình bày ở mức conceptual & architectural , phù h ợp với phạm vi lu ận 
+văn. Vi ệc mô hình hóa lu ồng ngư ời dùng và mapping v ới backend microservices giúp ch ứng 
+minh tính nh ất quán end -to-end c ủa hệ thống, đ ồng th ời đảm bảo khả năng tri ển khai th ực tế. 
+9A.8 Design UI with Figma  wireframe  
+Tiếp theo, s ử dụng Figma  kết hợp AI để thiết kế UI. Sau cùng, dùng AI tool đ ể biến đổi thiết kế 
+UI trong Figma  thành React Component . 
+ 
+Tham kh ảo lý thuy ết về UI/UX: https://www.figma.com/resource -library/what -is-wireframing/   
+ 
+10. Phương pháp nghiên c ứu & ti ếp cận luận văn  
+10.1 Phương pháp nghiên c ứu 
+Luận văn áp d ụng phương pháp Design Science Research (DSR) , trong đó tr ọng tâm là vi ệc 
+thiết kế – xây d ựng – đánh giá  một hiện vật (artifact) là h ệ thống ki ến trúc CAB Booking.  
+Các bư ớc chính:  
+1. Xác đ ịnh vấn đề thực tiễn (scalability, real -time, AI)  
+2. Đề xuất kiến trúc gi ải quy ết vấn đề 
+3. Triển khai mô hình ki ến trúc (conceptual design)  
+4. Đánh giá thông qua phân tích ki ến trúc & k ịch bản vận hành  
+10.2 Phạm vi nghiên c ứu 
+• Tập trung vào kiến trúc ph ần mềm & h ệ phân tán  
+• Không đi sâu vào UI/UX chi ti ết 
+
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  • AI ở mức kiến trúc & pipeline, không hu ấn luy ện model c ụ thể 
+ 
+11. Đánh giá ki ến trúc (Architecture Evaluation)  
+11.1 Đánh giá theo thu ộc tính ch ất lượng (Quality Attributes)  
+Thuộc tính  Giải pháp ki ến trúc  
+Scalability  Microservices, HPA, Kafka  
+Availability  Multi -region, stateless services  
+Performance  Redis cache, async processing  
+Security  JWT, mTLS, Zero Trust  
+Maintainability  Service isolation, API contract  
+11.2 Kịch bản đánh giá (ATAM – rút g ọn) 
+• Tăng 10x s ố lượng booking → h ệ thống scale ngang  
+• Một service AI b ị lỗi → fallback rule -based  
+• Payment gateway timeout → retry & eventual consistency  
+ 
+12. Failure Scenarios & Fault Handling (Hoàn ch ỉnh) 
+Phần này mô t ả toàn b ộ các k ịch bản lỗi quan tr ọng trong h ệ thống CAB Booking, cách phát 
+hiện, cô l ập và ph ục hồi nhằm đảm bảo High Availability  và Graceful Degradation . 
+12.1 Nhóm l ỗi Authentication & Security  
+Failure 
+Scenario  Nguyên nhân  Cách x ử lý 
+Auth Service 
+down  Pod crash / 
+overload  API Gateway tr ả 503, dùng circuit breaker, cho phép refresh 
+token cache ng ắn hạn 
+JWT h ết hạn Token expired  Tự động refresh token  
+Token b ị lộ Client 
+compromise  Revoke token qua Redis blacklist  
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  Failure 
+Scenario  Nguyên nhân  Cách x ử lý 
+Brute -force 
+login  Attack  Rate limit + CAPTCHA  
+ 
+12.2 Nhóm l ỗi Booking & Matching  
+Failure Scenario  Nguyên nhân  Cách x ử lý 
+Không tìm th ấy tài x ế Supply th ấp Retry m ở rộng bán kính, fallback rule -based  
+AI Matching l ỗi Model / service down  Fallback sang matching theo kho ảng cách  
+Booking duplicate  Network retry  Idempotency key  
+Booking service crash  Pod failure  Booking đư ợc replay t ừ Kafka  
+ 
+12.3 Nhóm l ỗi Real -time & GPS  
+Failure Scenario  Nguyên nhân  Cách x ử lý 
+Mất kết nối WebSocket  Mobile network  Auto -reconnect, fallback polling  
+GPS tr ễ / mất Thiết bị Dùng last -known -location  
+Kafka lag  High throughput  Scale consumer group  
+ 
+12.4 Nhóm l ỗi ETA & Pricing  
+Failure Scenario  Nguyên nhân  Cách x ử lý 
+Traffic API down  Third -party  Dùng historical average  
+ETA Service overload  Peak traffic  Cache Redis + rate limit  
+Surge AI l ỗi Model serving down  Fallback fixed rule  
+Inconsistent price  Race condition  Price snapshot theo booking  
+ 
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  12.5 Nhóm l ỗi Payment  
+Failure Scenario  Nguyên nhân  Cách x ử lý 
+Payment timeout  PSP ch ậm Retry + exponential backoff  
+PSP down  Third -party outage  Switch PSP khác  
+Double charge  Retry race  Idempotency key  
+Payment pending  Network split  Eventual consistency  
+ 
+12.6 Nhóm l ỗi Data & Storage  
+Failure Scenario  Nguyên nhân  Cách x ử lý 
+PostgreSQL fail  Node crash  Read replica + failover  
+Redis eviction  Memory pressure  TTL + recompute  
+MongoDB lag  Replication delay  Read preference  
+ 
+12.7 Nhóm l ỗi Infrastructure  
+Failure Scenario  Nguyên nhân  Cách x ử lý 
+Pod crash  Bug / OOM  Auto restart  
+Node down  Cloud issue  Reschedule pod  
+Region outage  Disaster  Multi -region failover  
+Network partition  ISP Eventual consistency  
+ 
+12.8 Failure Handling Patterns T ổng hợp 
+• Circuit Breaker  
+• Retry + Backoff  
+• Bulkhead Isolation  
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  • Idempotency  
+• Saga pattern  
+• Eventual consistency  
+• Graceful degradation  
+ 
+13. Phân tích so sánh & Trade -off 
+13.1 So sánh Monolithic vs Microservices  
+Tiêu chí  Monolithic  Microservices  
+Scale  Khó Dễ 
+Độ phức tạp Thấp ban đ ầu Cao hơn  
+Phù h ợp taxi           
+ 
+13.2 Trade -off chính  
+• Tăng đ ộ phức tạp vận hành đ ể đổi lấy khả năng m ở rộng 
+• Eventual consistency thay cho strong consistency  
+• Chi phí infra cao hơn nhưng đáp ứng real -time 
+ 
+14. Stack công ngh ệ & Chi phí tri ển khai (Technology Stack & Cost Estimation)  
+14.1 Tổng quan l ựa chọn stack  
+Stack công ngh ệ được lựa chọn theo tiêu chí:  
+• Cloud -native, ph ổ biến, dễ tuyển nhân s ự 
+• Phù h ợp hệ thống real -time, microservices  
+• Có h ệ sinh thái m ạnh & c ộng đồng lớn 
+ 
+ 
+ 
+ 
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  14.2 Stack công ngh ệ chi ti ết 
+14.2.1  Frontend  
+Thành ph ần Công ngh ệ 
+Web App  ReactJS  / NextJS , TypeScript  
+State management  Redux Toolkit / React Query  
+Real-time Socket.IO / WebSocket  
+Build & Deploy  Vite / CI -CD 
+ 
+14.2.2  Backend / Microservices  
+Thành ph ần Công ngh ệ 
+Runtime  Node.js (NestJS / Express)  
+API REST + OpenAPI  Swagger  
+Auth  OAuth2, JWT  
+Real-time Socket.IO  
+Validation  Zod / Joi  
+Microservices internal 
+communication  Synchronous : request -response, like REST  API (HTTP/HTTPS) , gRPC  
+Asynchronous : event -driven, message queues  (RabbitMQ, Kafka ) 
+ 
+14.2.3  Event & Messaging  
+Thành ph ần Công ngh ệ 
+Message Broker  Apache Kafka (ho ặc RabbitMQ)  
+Streaming  Kafka Streams  
+Schema  Schema Registry  
+ 
+ 
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  14.2.4  Data Layer  
+Thành ph ần Công ngh ệ 
+Transactional DB  PostgreSQL  
+NoSQL  MongoDB  
+Cache / Geo  Redis  
+Search (tu ỳ chọn) OpenSearch / Elastic  
+ 
+14.2.5  AI / ML  
+Thành ph ần Công ngh ệ 
+Training  Python, PyTorch / TensorFlow  
+Serving  FastAPI / TorchServe  
+Feature Store  Feast  
+Pipeline  Airflow  
+ 
+14.2.6  Infrastructure & DevOps  
+Thành ph ần Công ngh ệ 
+Cloud  AWS / GCP / Azure  
+Container  Docker  
+Orchestration  Kubernetes  
+Service Mesh  Istio / Linkerd  
+IaC Terraform  
+CI/CD  GitHub Actions / GitLab CI  
+ 
+ 
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  14.2.7  Observability & Security  
+Thành ph ần Công ngh ệ 
+Monitoring  Prometheus + Grafana  
+Logging  ELK / OpenSearch  
+Tracing  Jaeger  
+Secrets  Vault / Cloud Secret Manager  
+WAF  Cloud WAF  
+ 
+14.3 Ước lượng chi phí tri ển khai ( mang tính t ham kh ảo) 
+Giả định: ~100.000 MAU, 5.000 concurrent users , triển khai 1 region chính  
+14.3.1  Chi phí h ạ tầng hàng tháng (USD)  
+Hạng m ục Dịch vụ Chi phí ư ớc tính  
+Kubernetes cluster  EKS / GKE  300 – 500 
+Compute (Pods)  EC2 / GCE  800 – 1,200  
+Load Balancer  ALB / GLB  100 – 150 
+PostgreSQL (managed)  RDS / Cloud SQL  300 – 500 
+MongoDB  Atlas  200 – 400 
+Redis  ElastiCache  150 – 300 
+Kafka  MSK / Confluent  300 – 600 
+Storage & Backup  Object Storage  100 – 200 
+Observability  Logs + Metrics  100 – 200 
+Tổng ư ớc tính:  ~2,500 – 4,000 USD / tháng  
+ 
+ 
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  14.4 Chi phí m ở rộng theo quy mô  
+Quy mô  MAU  Chi phí ư ớc tính  
+Startup  10k 500 – 800 USD  
+Scale -up 100k  2,500 – 4,000 USD  
+Large scale  1M+  15,000+ USD  
+ 
+14.5 Trade -off chi phí  
+• Managed services tăng chi phí nhưng gi ảm rủi ro v ận hành  
+• Kafka t ốn kém hơn RabbitMQ nhưng phù h ợp real -time scale l ớn 
+• Multi -region tăng HA nhưng chi phí x2 –x3 
+• AI inference chi phí cao → c ần cache & batch  
+14.6 Đánh giá h ọc thu ật 
+Phân tích stack và chi phí cho th ấy kiến trúc đ ề xuất khả thi trong th ực tế, có th ể triển khai t ừ 
+quy mô startup đ ến enterprise. Vi ệc ước lượng chi phí giúp đánh giá tính kinh t ế (economic 
+feasibility) c ủa mô hình nghiên c ứu. 
+15. Hướng phát tri ển tương lai (Future Work)  
+Mặc dù h ệ thống đã đư ợc thiết kế tương đ ối hoàn ch ỉnh về mặt kiến trúc, b ảo mật và kh ả năng 
+mở rộng, v ẫn còn nhi ều hướng phát tri ển tiềm năng trong tương lai nh ằm nâng cao hi ệu năng, đ ộ 
+thông minh và kh ả năng thích ứng của hệ thống. 
+15.1 Nâng cao năng l ực AI & Machine Learning  
+• Áp d ụng Reinforcement Learning  cho bài toán matching tài x ế – khách hàng nh ằm tối 
+ưu hóa toàn c ục (global optimization) thay vì t ối ưu c ục bộ. 
+• Sử dụng Graph Neural Networks (GNN)  để mô hình hóa m ạng lư ới giao thông và hành 
+vi tài x ế. 
+• Triển khai online learning  để mô hình t ự thích nghi theo th ời gian th ực với thay đ ổi nhu 
+cầu và đi ều kiện giao thôn g (Multi -modal transport by bike, delivery)  
+• Cá nhân hóa giá cư ớc và ETA d ựa trên hành vi ngư ời dùng  (Graph -based ETA prediction ) 
+15.2 Mở rộng ki ến trúc d ữ liệu & phân tích nâng cao  
+• Xây d ựng Data Lake / Lakehouse  phục vụ phân tích l ớn và hu ấn luy ện AI.  
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  • Áp d ụng Real -time analytics  (Apache Flink / Spark Streaming) cho giám sát h ệ thống và 
+phát hi ện bất thường. 
+• Phát tri ển Feature Store dùng chung  cho nhi ều mô hình AI.  
+15.3 Đa vùng & toàn c ầu hóa h ệ thống 
+• Triển khai multi -region active -active  để giảm độ trễ và tăng kh ả năng ch ịu lỗi. 
+• Hỗ trợ multi -currency, multi -language, multi -regulation . 
+• Tối ưu đ ịnh tuy ến ngư ời dùng theo v ị trí địa lý (Geo -routing).  
+15.4 Tăng cư ờng bảo mật & quy ền riêng tư  
+• Áp d ụng Confidential Computing  cho x ử lý dữ liệu nhạy cảm. 
+• Nghiên c ứu Privacy -Preserving Machine Learning  (Federated Learning, Differential 
+Privacy).  
+• Tự động hóa ph ản ứng sự cố bảo mật (SOAR).  
+15.5 Tối ưu chi phí & năng lư ợng 
+• Áp d ụng FinOps  để giám sát và t ối ưu chi phí cloud.  
+• Sử dụng spot/preemptible instances  cho workload AI.  
+• Nghiên c ứu Green IT  nhằm giảm tiêu th ụ năng lư ợng. 
+15.6 Định hư ớng nghiên c ứu học thu ật 
+• So sánh hi ệu quả kiến trúc Microservices v ới Serverless / Event -native architectures . 
+• Đánh giá tác đ ộng của các mô hình AI khác nhau đ ến độ công b ằng (fairness) trong phân 
+phối chuy ến đi. 
+• Nghiên c ứu khả năng áp d ụng Digital Twin  cho mô ph ỏng hệ thống giao thông.  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  16. Phụ lục (Appendix)  
+Phụ lục A – Mermaid Diagrams  
+A.1 T ổng th ể kiến trúc h ệ thống 
+ 
+A.2 Sequence Diagram – AI Matching  
+ 
+ 
+ 
+ 
+ 
+ 
+
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  A.3 Sequence Diagram – Payment Saga  
+ 
+ 
+Phụ lục B – OpenAPI Specification (FULL)  
+Xây d ựng mô tả Restful API v ới OpenAPI 3.0  (OAS  yaml  file) – đầy đủ tất cả services, có th ể 
+import tr ực tiếp Swagger / Postman  
+ 
+ 
+ 
+
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  Phụ lục C – State Machine  
+C.1 Ride State Machine  
+ 
+C.2 Payment State Machine  
+ 
+ 
+ 
+ 
+ 
+
+BY MR. HUYNH NAM   Email: giangdayit@gmail.com  
+Lưu hành nội bộ: Đồ án môn h ọc Modern System Architecture Design for Large 
+Demands , chuyên ngành Hệ Thống Thông Tin – Đại Học IUH  Phụ lục D – Kafka Topics & Event Schema  
+Topic  Producer  Consumer  
+ride.created  Booking  Matching, ETA  
+ride.assigned  Matching  Notification  
+driver.location.updated  Ride  ETA, Monitoring  
+payment.completed  Payment  Ride, Wallet  
+payment.failed  Payment  Notification  
+Sample Event (ride.created)  
+{  
+"eventId": "uuid",  
+  "type": "RideCreated",  
+  "rideId": "r123",  
+  "pickup": {"lat":10.7,"lng":106.6},  
+  "timestamp": "2025 -01-01T10:00:00Z"  
+} 
+ 
+Phụ lục E – Threat Model (STRIDE)  
+STRIDE  Threat  Mitigation  
+Spoofing  Token gi ả JWT + mTLS  
+Tampering  Sửa payload  TLS + HMAC  
+Repudiation  Chối giao d ịch Audit log  
+Information Disclosure  Lộ PII Encryption  
+DoS Flood API  Rate limit, WAF  
+Elevation of Privilege  Leo quy ền RBAC/ABAC  
+ inprotected.com

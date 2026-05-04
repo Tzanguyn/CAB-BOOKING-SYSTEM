@@ -18,6 +18,7 @@
   "author": "CAB Booking Team",
   "license": "ISC",
   "dependencies": {
+    "amqplib": "^0.10.3",
     "socket.io": "^4.7.2",
     "socket.io-redis": "^6.1.1",
     "ioredis": "^5.8.2",

@@ -1,0 +1,419 @@
+{
+  "info": {
+    "name": "CAB Booking System - 12 Levels Evaluation",
+    "description": "Full suite for testing all 12 levels of the CAB Booking System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Level 1: Basic API & Flow",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "url": "{{gateway_url}}/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"test@example.com\",\"password\":\"password123\",\"name\":\"Test User\",\"role\":\"customer\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "url": "{{gateway_url}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"test@example.com\",\"password\":\"password123\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.tokens && jsonData.tokens.accessToken) {",
+                  "    pm.collectionVariables.set('token', jsonData.tokens.accessToken);",
+                  "    pm.collectionVariables.set('userId', jsonData.user.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Level 2: Validation & Edge Cases",
+      "item": [
+        {
+          "name": "Missing pickup rejected (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{gateway_url}}/api/bookings",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"customerId\":\"{{userId}}\",\"drop\":{\"lat\":10,\"lng\":106}}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        },
+        {
+          "name": "Invalid Payment Method (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{gateway_url}}/api/bookings",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"customerId\":\"{{userId}}\",\"pickup\":{\"lat\":1,\"lng\":1},\"drop\":{\"lat\":2,\"lng\":2},\"payment_method\":\"invalid\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Level 3: Integration Test",
+      "item": [
+        {
+          "name": "API Gateway route mapping",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Level 4: Transaction & Saga",
+      "item": [
+        {
+          "name": "Create Booking (Saga init)",
+          "request": {
+            "method": "POST",
+            "url": "{{gateway_url}}/api/bookings",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"customerId\":\"{{userId}}\",\"pickup\":{\"lat\":10,\"lng\":10},\"drop\":{\"lat\":11,\"lng\":11},\"payment_method\":\"CASH\"}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Level 5: AI Service Validation",
+      "item": [
+        {
+          "name": "Recommendation trả top-3 drivers",
+          "request": {
+            "method": "POST",
+            "url": "{{gateway_url}}/api/matching/recommend",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"lat\":10.76,\"lng\":106.66,\"top\":3}"
+            }
+          }
+        },
+        {
+          "name": "ETA model output trong range hợp lý",
+          "request": {
+            "method": "POST",
+            "url": "{{gateway_url}}/api/eta/estimate",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"distance_km\":5,\"traffic_level\":0.5}"
+            }
+          }
+        },
+        {
+          "name": "Pricing surge > 1 khi demand cao",
+          "request": {
+            "method": "POST",
+            "url": "{{gateway_url}}/api/pricing/estimate",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"distance_km\":5,\"demand_index\":2}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Level 6: AI Agent Logic",
+      "item": [
+        {
+          "name": "Agent xử lý context thiếu dữ liệu",
+          "request": {
+            "method": "POST",
+            "url": "{{gateway_url}}/api/matching/recommend",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"lat\":10.76}"
+            }
+          }
+        },
+        {
+          "name": "Agent chọn driver gần nhất",
+          "request": {
+            "method": "POST",
+            "url": "{{gateway_url}}/api/matching/recommend",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"lat\":10.76,\"lng\":106.66,\"radiusKm\":1}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Level 7: Performance & Load",
+      "item": [
+        {
+          "name": "P95 latency < 300ms",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/health",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Level 8: Failure & Resilience",
+      "item": [
+        {
+          "name": "Input bất thường -> Không crash",
+          "request": {
+            "method": "POST",
+            "url": "{{gateway_url}}/api/eta/estimate",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"distance_km\":9999999,\"traffic_level\":5}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Level 9: Security Test",
+      "item": [
+        {
+          "name": "Request không có token (401)",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/bookings/customer/123",
+            "header": []
+          }
+        },
+        {
+          "name": "Token không hợp lệ (401)",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/bookings/customer/123",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer INVALID_TOKEN"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Level 10: Zero Trust Security",
+      "item": [
+        {
+          "name": "RBAC - User không có quyền (403)",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/api/drivers",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Level 11: Deployment",
+      "item": [
+        {
+          "name": "Health check endpoint (200)",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/health",
+            "header": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Level 12: Monitoring",
+      "item": [
+        {
+          "name": "Metrics được expose (200)",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/metrics",
+            "header": []
+          }
+        },
+        {
+          "name": "SLO Dashboard Data (200)",
+          "request": {
+            "method": "GET",
+            "url": "{{gateway_url}}/slo",
+            "header": []
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "gateway_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  }
+}

@@ -49,6 +49,17 @@ class UserRepository {
         }
     }
 
+    // Find user by phone and role
+    async findByPhoneAndRole(phone, role) {
+        try {
+            const user = await this.User.findOne({ where: { phone, role } });
+            return user ? user.toJSON() : null;
+        } catch (error) {
+            console.error('Error finding user by phone and role:', error);
+            throw error;
+        }
+    }
+
     // Update user
     async update(id, updateData) {
         try {

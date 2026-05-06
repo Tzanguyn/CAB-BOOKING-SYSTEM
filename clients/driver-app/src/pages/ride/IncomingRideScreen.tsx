@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Polyline } from 'react-leaflet';
 import L from 'leaflet';
@@ -25,6 +25,7 @@ const IncomingRideScreen = () => {
   const [timeLeft, setTimeLeft] = useState(15);
   const [isProcessing, setIsProcessing] = useState(false);
   const [routePath, setRoutePath] = useState<[number, number][]>([]);
+  const fetchedForRideId = useRef<string | null>(null);
 
   useEffect(() => {
     if (rideStatus === 'IDLE' || !activeRide) {
@@ -32,11 +33,15 @@ const IncomingRideScreen = () => {
       return;
     }
 
-    // Fetch route path
-    routeService.getRoutePath(
-      { lat: activeRide.pickup.lat, lng: activeRide.pickup.lng },
-      { lat: activeRide.dropoff.lat, lng: activeRide.dropoff.lng }
-    ).then(path => setRoutePath(path));
+    // Fetch route path once per unique ride
+    if (fetchedForRideId.current !== activeRide.id) {
+      fetchedForRideId.current = activeRide.id;
+      setRoutePath([]);
+      routeService.getRoutePath(
+        { lat: activeRide.pickup.lat, lng: activeRide.pickup.lng },
+        { lat: activeRide.dropoff.lat, lng: activeRide.dropoff.lng }
+      ).then(path => setRoutePath(path));
+    }
 
     // Countdown Timer
     const timer = setInterval(() => {
@@ -129,7 +134,7 @@ const IncomingRideScreen = () => {
           zoomControl={false}
           className="w-full h-full"
         >
-          <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+          <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
           <Marker position={[activeRide.pickup.lat, activeRide.pickup.lng]} icon={createDotIcon('bg-indigo-500')} />
           <Marker position={[activeRide.dropoff.lat, activeRide.dropoff.lng]} icon={createDotIcon('bg-emerald-500')} />
           <Polyline 

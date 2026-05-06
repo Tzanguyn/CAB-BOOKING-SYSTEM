@@ -9,8 +9,10 @@ const authenticateToken = async (req, res, next) => {
     /* ================== SKIP RULES ================== */
     // Không cần auth cho các route sau
     if (
-      req.path.startsWith('/auth') ||
-      req.path === '/health'
+      req.originalUrl.startsWith('/auth') ||
+      req.originalUrl === '/health' ||
+      req.originalUrl === '/metrics' ||
+      req.originalUrl === '/slo'
     ) {
       return next();
     }

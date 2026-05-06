@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -53,50 +53,63 @@ const TripInProgressScreen = () => {
   const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [routePath, setRoutePath] = useState<[number, number][]>([]);
+  const fetchedForRideId = useRef<string | null>(null);
 
+  // ── Step 1: Snap driver to pickup location & fetch route ──
   useEffect(() => {
     if (rideStatus === 'IDLE' || !activeRide) {
       navigate('/driver/home');
       return;
     }
-    
-    if (routePath.length === 0) {
-      routeService.getRoutePath(
-        { lat: activeRide.pickup.lat, lng: activeRide.pickup.lng },
-        { lat: activeRide.dropoff.lat, lng: activeRide.dropoff.lng }
-      ).then(path => setRoutePath(path));
-    }
-  }, [rideStatus, activeRide, navigate]);
 
-  // Simulation: Move vehicle towards dropoff location along the route
+    // Only run once per unique ride
+    if (fetchedForRideId.current === activeRide.id) return;
+    fetchedForRideId.current = activeRide.id;
+
+    // CRITICAL: Snap currentLocation to pickup immediately.
+    // This prevents the driver icon from appearing at a wrong location
+    // (e.g. browser geolocation or stale simulation coordinates).
+    setCurrentLocation(activeRide.pickup.lat, activeRide.pickup.lng);
+    console.log('[TripInProgress] Snapped driver to pickup:', activeRide.pickup.lat, activeRide.pickup.lng);
+
+    // Clear stale route and fetch new one
+    setRoutePath([]);
+    routeService.getRoutePath(
+      { lat: activeRide.pickup.lat, lng: activeRide.pickup.lng },
+      { lat: activeRide.dropoff.lat, lng: activeRide.dropoff.lng }
+    ).then(path => {
+      console.log('[TripInProgress] Route loaded:', path.length, 'points. First:', path[0], 'Last:', path[path.length - 1]);
+      setRoutePath(path);
+    });
+  }, [rideStatus, activeRide, navigate, setCurrentLocation]);
+
+  // ── Step 2: Simulate vehicle movement along route ──
   useEffect(() => {
     if (!activeRide || rideStatus !== 'IN_PROGRESS' || routePath.length === 0) return;
 
     let simulationInterval: number;
     let currentStepIndex = 0;
     
-    // We want the simulation to take about 40 steps (~1.3 minutes)
+    // ~40 steps (~1.3 minutes total)
     const stepIncrement = Math.max(1, Math.ceil(routePath.length / 40));
 
     simulationInterval = window.setInterval(() => {
       if (currentStepIndex < routePath.length) {
-        const [currentLat, currentLng] = routePath[currentStepIndex];
+        const [lat, lng] = routePath[currentStepIndex];
         
-        setCurrentLocation(currentLat, currentLng);
+        setCurrentLocation(lat, lng);
         
-        // Emit location update to socket so customer app can track
         if (socket) {
           socket.emit('driver.location.updated', {
             driverId: user?.id || '',
-            lat: currentLat,
-            lng: currentLng,
+            lat,
+            lng,
             heading: 0
           });
         }
         
         currentStepIndex += stepIncrement;
       } else {
-        // Move to the exact final destination
         setCurrentLocation(activeRide.dropoff.lat, activeRide.dropoff.lng);
         clearInterval(simulationInterval);
       }
@@ -105,7 +118,7 @@ const TripInProgressScreen = () => {
     return () => {
       if (simulationInterval) clearInterval(simulationInterval);
     };
-  }, [activeRide, rideStatus, socket, user?.id, setCurrentLocation, routePath]); // Start simulation once routePath is available
+  }, [activeRide, rideStatus, socket, user?.id, setCurrentLocation, routePath]);
 
 
   const handleComplete = async () => {
@@ -143,8 +156,12 @@ const TripInProgressScreen = () => {
 
   if (!activeRide || !currentLocation) return null;
 
+  // Use pickup as display origin so we always show correct area
+  const displayLat = currentLocation.lat;
+  const displayLng = currentLocation.lng;
+
   const remainingDistance = calculateDistance(
-    currentLocation.lat, currentLocation.lng,
+    displayLat, displayLng,
     activeRide.dropoff.lat, activeRide.dropoff.lng
   );
   const displayDistance = Math.max(0.1, remainingDistance).toFixed(1);
@@ -163,24 +180,24 @@ const TripInProgressScreen = () => {
       {/* Map */}
       <div className="flex-1 w-full relative z-[0]">
         <MapContainer 
-          center={[currentLocation.lat, currentLocation.lng]} 
+          center={[activeRide.pickup.lat, activeRide.pickup.lng]} 
           zoom={16} 
           zoomControl={false}
           className="w-full h-full"
         >
-          <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+          <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
           
           <MapBoundsUpdater positions={[
             [activeRide.pickup.lat, activeRide.pickup.lng], 
             [activeRide.dropoff.lat, activeRide.dropoff.lng]
           ]} />
           
-          <Marker position={[currentLocation.lat, currentLocation.lng]} icon={driverCarIcon} />
+          <Marker position={[displayLat, displayLng]} icon={driverCarIcon} />
           <Marker position={[activeRide.dropoff.lat, activeRide.dropoff.lng]} icon={createDotIcon('bg-emerald-500')} />
           
           <Polyline 
             positions={routePath.length > 0 ? routePath : [[activeRide.pickup.lat, activeRide.pickup.lng], [activeRide.dropoff.lat, activeRide.dropoff.lng]]} 
-            color="#10b981" weight={4} opacity={0.8} 
+            pathOptions={{ color: '#10b981', weight: 4, opacity: 0.8 }} 
           />
         </MapContainer>
         

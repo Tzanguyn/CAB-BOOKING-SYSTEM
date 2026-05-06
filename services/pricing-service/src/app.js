@@ -74,6 +74,22 @@ app.get('/metrics', observability.metricsHandler);
 app.get('/slo', sloMonitor.sloHandler);
 
 app.get('/api/pricing/health', (req, res) => {
+	// Fail-fast simulation: khi config sai, service PHAI crash ngay, khong chay half-broken
+	if (req.headers['x-simulate-bad-config'] === 'true') {
+		console.error('🔴 [FATAL] Invalid configuration detected! Service refusing to start.');
+		console.error('🔴 Missing required ENV: PRICING_DB_URL, KAFKA_BROKER');
+		console.error('🔴 CrashLoopBackOff: Service will NOT run in half-broken state.');
+		return res.status(500).json({
+			service: 'pricing-service',
+			status: 'CRASHED',
+			error: 'Fatal: Invalid configuration. Service failed to start.',
+			missingConfig: ['PRICING_DB_URL', 'KAFKA_BROKER', 'AI_MODEL_ENDPOINT'],
+			crashReason: 'CrashLoopBackOff - fail fast on bad config',
+			halfBroken: false,
+			timestamp: new Date().toISOString()
+		});
+	}
+
 	res.json({
 		service: 'pricing-service',
 		status: 'healthy',

@@ -1,5 +1,16 @@
 const AuthService = require('../services/authService');
 
+const escapeHTML = (str) => {
+  if (typeof str !== 'string') return str;
+  return str.replace(/[&<>'"]/g, (tag) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#39;',
+    '"': '&quot;'
+  }[tag]));
+};
+
 class AuthController {
   constructor() {
     this.authService = new AuthService();
@@ -49,8 +60,8 @@ class AuthController {
         email: email.toLowerCase().trim(),
         phone: phone ? phone.trim() : null,
         password,
-        firstName: fName.trim(),
-        lastName: lName.trim(),
+        firstName: escapeHTML(fName.trim()),
+        lastName: escapeHTML(lName.trim()),
         role
       }, deviceInfo);
 
@@ -243,6 +254,9 @@ class AuthController {
       if (!userId) {
         return res.status(400).json({ error: 'User ID not found' });
       }
+
+      if (updateData.firstName) updateData.firstName = escapeHTML(updateData.firstName.trim());
+      if (updateData.lastName) updateData.lastName = escapeHTML(updateData.lastName.trim());
 
       const profile = await this.authService.updateProfile(userId, updateData);
 

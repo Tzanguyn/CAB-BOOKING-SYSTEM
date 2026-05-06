@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -42,18 +42,38 @@ const PickupScreen = () => {
   const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [routePath, setRoutePath] = useState<[number, number][]>([]);
+  const fetchedForRideId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (rideStatus === 'IDLE' || !activeRide || !currentLocation) {
+    if (rideStatus === 'IDLE' || !activeRide) {
       navigate('/driver/home');
       return;
     }
     
-    if (routePath.length === 0) {
+    // Fetch route once per unique ride
+    if (fetchedForRideId.current !== activeRide.id) {
+      fetchedForRideId.current = activeRide.id;
+      setRoutePath([]);
+
+      // Use currentLocation if it looks valid (in Vietnam area), otherwise use a sensible default
+      const startLat = (currentLocation && currentLocation.lat > 8 && currentLocation.lat < 24) 
+        ? currentLocation.lat : activeRide.pickup.lat - 0.01;
+      const startLng = (currentLocation && currentLocation.lng > 100 && currentLocation.lng < 115)
+        ? currentLocation.lng : activeRide.pickup.lng - 0.01;
+      
+      // Snap driver to start position if currentLocation seems invalid
+      if (!currentLocation || currentLocation.lat < 8 || currentLocation.lat > 24 || currentLocation.lng < 100 || currentLocation.lng > 115) {
+        setCurrentLocation(startLat, startLng);
+        console.warn('[PickupScreen] currentLocation invalid, snapping to:', startLat, startLng);
+      }
+
       routeService.getRoutePath(
-        { lat: currentLocation.lat, lng: currentLocation.lng },
+        { lat: startLat, lng: startLng },
         { lat: activeRide.pickup.lat, lng: activeRide.pickup.lng }
-      ).then(path => setRoutePath(path));
+      ).then(path => {
+        console.log('[PickupScreen] Route loaded:', path.length, 'points');
+        setRoutePath(path);
+      });
     }
     
     // Simulate customer cancellation
@@ -173,7 +193,7 @@ const PickupScreen = () => {
           zoomControl={false}
           className="w-full h-full"
         >
-          <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+          <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
           
           <MapBoundsUpdater positions={[
             [currentLocation.lat, currentLocation.lng], 
@@ -185,7 +205,7 @@ const PickupScreen = () => {
           
           <Polyline 
             positions={routePath.length > 0 ? routePath : [[currentLocation.lat, currentLocation.lng], [activeRide.pickup.lat, activeRide.pickup.lng]]} 
-            color="#6366f1" weight={4} opacity={0.8} 
+            pathOptions={{ color: '#6366f1', weight: 4, opacity: 0.8 }} 
           />
         </MapContainer>
       </div>

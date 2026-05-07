@@ -4,7 +4,7 @@ import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-
 import { X, Lock, Loader2 } from 'lucide-react';
 import showToast from '@shared/components/Toast';
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '');
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_51TNRP6LcXlRTJQeea6CegbblTnct3HwbgoxQp1yNjwYryR3f3SNKcOufRgfwsuitWpxz2OWBa8UKT8GXdko00ih300rMSsMzJq');
 
 interface StripeFormProps {
   clientSecret: string;

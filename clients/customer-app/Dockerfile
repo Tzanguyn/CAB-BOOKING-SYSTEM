@@ -5,6 +5,7 @@ WORKDIR /app
 # Copy root package.json if it exists (for workspace dependencies)
 # but for now we just copy what's needed
 COPY shared ./shared
+RUN cd shared && npm install
 COPY customer-app ./customer-app
 
 # Build shared if necessary (assuming it's just TS files)

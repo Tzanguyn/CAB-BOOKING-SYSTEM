@@ -3,6 +3,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY shared ./shared
+RUN cd shared && npm install
 COPY driver-app ./driver-app
 
 WORKDIR /app/driver-app

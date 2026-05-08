@@ -102,16 +102,26 @@ const createApiInstance = (loginPathRef: React.MutableRefObject<string>): AxiosI
   return api;
 };
 
+// ===== Role-name map for user-friendly error messages =====
+const ROLE_LABELS: Record<string, string> = {
+  customer: 'Khách hàng (Customer App)',
+  driver: 'Tài xế (Driver App)',
+  admin: 'Quản trị viên (Admin Dashboard)',
+};
+
 // ===== Provider =====
 interface AuthProviderProps {
   children: ReactNode;
   /** Where to redirect on logout/401, default '/login' */
   loginPath?: string;
+  /** Roles allowed for this app. If set, login & session restore will reject other roles. */
+  allowedRoles?: string[];
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({
   children,
   loginPath = '/login',
+  allowedRoles,
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -125,6 +135,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     try {
       const response = await api.get('/auth/profile');
       const profile = response.data.profile || response.data.user || response.data;
+
+      // Validate role: reject session if user role not allowed for this app
+      if (allowedRoles && allowedRoles.length > 0 && profile.role) {
+        const userRole = String(profile.role).toLowerCase();
+        if (!allowedRoles.map(r => r.toLowerCase()).includes(userRole)) {
+          console.warn(`[AuthContext] Role "${profile.role}" not allowed in this app (allowed: ${allowedRoles.join(', ')})`);
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('user');
+          setUser(null);
+          setToken(null);
+          setLoading(false);
+          return;
+        }
+      }
+
       setUser(profile);
     } catch {
       localStorage.removeItem('accessToken');
@@ -134,7 +160,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, [api, allowedRoles]);
 
   useEffect(() => {
     const storedToken = localStorage.getItem('accessToken');
@@ -160,6 +186,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
         throw new Error('Phản hồi từ server không hợp lệ');
       }
 
+      // ========== ROLE VALIDATION ==========
+      // Reject login if user role doesn't match the allowed roles for this app
+      if (allowedRoles && allowedRoles.length > 0 && userData?.role) {
+        const userRole = String(userData.role).toLowerCase();
+        if (!allowedRoles.map(r => r.toLowerCase()).includes(userRole)) {
+          const roleLabel = ROLE_LABELS[userRole] || userData.role;
+          const appLabel = allowedRoles.map(r => ROLE_LABELS[r] || r).join(', ');
+          showToast.error(
+            `Tài khoản "${roleLabel}" không được phép đăng nhập vào ứng dụng này. Ứng dụng này dành cho: ${appLabel}.`
+          );
+          throw new Error(`Role "${userData.role}" is not allowed in this app`);
+        }
+      }
+
       localStorage.setItem('accessToken', tokens.accessToken);
       localStorage.setItem('refreshToken', tokens.refreshToken);
       setToken(tokens.accessToken);
@@ -167,9 +207,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
 
       showToast.success('Đăng nhập thành công!');
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { error?: string } } };
-      const message = err.response?.data?.error || 'Đăng nhập thất bại';
-      showToast.error(message);
+      const err = error as { response?: { data?: { error?: string } }; message?: string };
+      // Don't show duplicate toast for role mismatch (already shown above)
+      if (!err.message?.includes('not allowed in this app')) {
+        const message = err.response?.data?.error || 'Đăng nhập thất bại';
+        showToast.error(message);
+      }
       throw error;
     } finally {
       setLoading(false);

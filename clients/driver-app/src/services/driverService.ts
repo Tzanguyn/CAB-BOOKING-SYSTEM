@@ -82,5 +82,51 @@ export const driverApiService = {
       console.warn('Get earnings error', error);
       return { total: 0, rides: 0, history: [] };
     }
-  }
+  },
+
+  /**
+   * Upload a document (license, vehicle registration, etc.) to MinIO via storage-service.
+   * @param file - File object from <input type="file">
+   * @param userId - Driver's user ID
+   * @param category - e.g. 'license-front', 'license-back', 'vehicle-registration'
+   */
+  async uploadDocument(file: File, userId: string, category: string): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('userId', userId);
+    formData.append('category', category);
+
+    const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const token = localStorage.getItem('accessToken');
+
+    const response = await fetch(`${baseURL}/api/storage/upload`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Upload failed (${response.status})`);
+    }
+
+    return response.json();
+  },
+
+  /**
+   * List all uploaded documents for a driver.
+   */
+  async getDocuments(userId: string, category?: string): Promise<any> {
+    try {
+      const query = category ? `?category=${category}` : '';
+      const response: any = await axiosClient.get(`/api/storage/files/${userId}${query}`);
+      return response.data || response;
+    } catch (error) {
+      console.warn('Get documents error', error);
+      return { files: [] };
+    }
+  },
 };
+

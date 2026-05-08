@@ -1,0 +1,31 @@
+{
+  "name": "storage-service",
+  "version": "1.0.0",
+  "description": "MinIO Object Storage Service for CAB Booking System",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "cab-booking",
+    "storage",
+    "minio",
+    "s3",
+    "microservice"
+  ],
+  "author": "CAB Booking Team",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "minio": "^8.0.5",
+    "multer": "^1.4.5-lts.2",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

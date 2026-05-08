@@ -10,7 +10,7 @@ import { ErrorBoundary, OfflineDetector } from '@shared/components';
 function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider loginPath="/customer/login">
+      <AuthProvider loginPath="/customer/login" allowedRoles={['customer']}>
         <SocketProvider autoConnect>
           <BrowserRouter>
             <OfflineDetector />

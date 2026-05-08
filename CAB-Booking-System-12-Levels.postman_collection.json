@@ -180,7 +180,7 @@
           ]
         },
         {
-          "name": "5. Lấy danh sách booking của customer",
+          "name": "4. Lấy danh sách booking của customer",
           "request": {
             "method": "GET",
             "url": "{{gateway_url}}/api/bookings/customer/{{userId}}",
@@ -212,7 +212,175 @@
           ]
         },
         {
-          "name": "6. Gọi API ETA trả về giá trị > 0",
+          "name": "5. Đăng ký Driver thành công",
+          "request": {
+            "method": "POST",
+            "url": "{{gateway_url}}/auth/register",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"driver_level1@test.com\",\n  \"password\": \"Test@12345\",\n  \"name\": \"Test Driver\",\n  \"role\": \"driver\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 201 Created hoặc 409 Exists\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([201, 409]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. Đăng nhập Driver trả JWT hợp lệ",
+          "request": {
+            "method": "POST",
+            "url": "{{gateway_url}}/auth/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"driver_level1@test.com\",\n  \"password\": \"Test@12345\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Lưu driverToken và driverId\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.tokens).to.not.be.undefined;",
+                  "    pm.expect(jsonData.tokens.accessToken).to.not.be.undefined;",
+                  "    pm.collectionVariables.set(\"driverToken\", jsonData.tokens.accessToken);",
+                  "    pm.collectionVariables.set(\"driverId\", jsonData.user.id);",
+                  "    console.log(\"driverToken saved:\", jsonData.tokens.accessToken.substring(0, 20) + \"...\");",
+                  "    console.log(\"driverId saved:\", jsonData.user.id);",
+                  "});",
+                  "pm.test(\"Token có role = driver\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    var token = jsonData.tokens.accessToken;",
+                  "    var parts = token.split(\".\");",
+                  "    var payload = JSON.parse(atob(parts[1]));",
+                  "    pm.expect(payload.role).to.eql(\"driver\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. Driver chuyển trạng thái online",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "PUT",
+            "url": "{{gateway_url}}/api/drivers/status/{{driverId}}",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{driverToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"online\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Debug: kiem tra driverToken truoc khi gui",
+                  "console.log(\"driverToken value:\", pm.collectionVariables.get(\"driverToken\"));",
+                  "console.log(\"driverId value:\", pm.collectionVariables.get(\"driverId\"));",
+                  "",
+                  "pm.test(\"HTTP 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Status updated to online\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql(\"online\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. Booking được tạo với status = REQUESTED",
+          "request": {
+            "method": "POST",
+            "url": "{{gateway_url}}/api/bookings",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"{{userId}}\",\n  \"pickupLocation\": {\"lat\": 10.762622, \"lng\": 106.660172},\n  \"dropoffLocation\": {\"lat\": 10.775658, \"lng\": 106.700424},\n  \"paymentMethod\": \"CASH\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"HTTP 200 hoặc 201\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "pm.test(\"Booking có status = REQUESTED\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    var booking = jsonData.data;",
+                  "    pm.expect(booking).to.not.be.undefined;",
+                  "    pm.expect(booking.status).to.eql(\"REQUESTED\");",
+                  "});",
+                  "pm.test(\"Booking có id hợp lệ\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    var booking = jsonData.data;",
+                  "    pm.expect(booking.id || booking._id).to.not.be.undefined;",
+                  "    pm.collectionVariables.set(\"bookingId\", booking.id || booking._id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. Gọi API ETA trả về giá trị > 0",
           "request": {
             "method": "POST",
             "url": "{{gateway_url}}/api/eta/estimate",
@@ -255,7 +423,7 @@
           ]
         },
         {
-          "name": "7. Pricing API trả về giá hợp lệ",
+          "name": "8. Pricing API trả về giá hợp lệ",
           "request": {
             "method": "POST",
             "url": "{{gateway_url}}/api/pricing/estimate",
@@ -298,7 +466,7 @@
           ]
         },
         {
-          "name": "8. Lấy profile user qua auth service",
+          "name": "#. Lấy profile user qua auth service",
           "request": {
             "method": "GET",
             "url": "{{gateway_url}}/auth/profile",

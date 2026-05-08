@@ -93,6 +93,27 @@ services:
       timeout: 10s
       retries: 5
     restart: unless-stopped
+  # MinIO Object Storage (S3-compatible)
+  minio:
+    image: minio/minio:latest
+    container_name: cab-booking-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: cab_minio_admin
+      MINIO_ROOT_PASSWORD: cab_minio_secret123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - cab-booking-network
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
   # ============================================================================
   # MICROSERVICES (Development/Production/Full Profiles)
   # ============================================================================
@@ -443,6 +464,34 @@ services:
       timeout: 10s
       retries: 3
     restart: unless-stopped
+  # Storage Service (MinIO Gateway)
+  storage-service:
+    build:
+      context: .
+      dockerfile: services/storage-service/Dockerfile
+    container_name: cab-booking-storage-service
+    ports:
+      - "3015:3015"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3015
+      - MINIO_ENDPOINT=minio
+      - MINIO_PORT=9000
+      - MINIO_USE_SSL=false
+      - MINIO_ACCESS_KEY=cab_minio_admin
+      - MINIO_SECRET_KEY=cab_minio_secret123
+      - MINIO_BUCKET=cab-documents
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - cab-booking-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3015/api/storage/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
   # ============================================================================
   # API GATEWAY (Development/Production/Full Profiles)
   # ============================================================================
@@ -467,6 +516,7 @@ services:
       - ETA_SERVICE_URL=http://eta-service:3011
       - NOTIFICATION_SERVICE_URL=http://notification-service:3008
       - REVIEW_SERVICE_URL=http://review-service:3006
+      - STORAGE_SERVICE_URL=http://storage-service:3015
     depends_on:
       - auth-service
       - user-service
@@ -478,6 +528,7 @@ services:
       - eta-service
       - notification-service
       - review-service
+      - storage-service
     networks:
       - cab-booking-network
     healthcheck:
@@ -569,6 +620,8 @@ volumes:
   redis_data:
     driver: local
   rabbitmq_data:
+    driver: local
+  minio_data:
     driver: local
 
 networks:

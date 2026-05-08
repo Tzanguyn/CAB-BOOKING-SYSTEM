@@ -57,7 +57,9 @@ const ROLE_SCOPE_FALLBACK = Object.freeze({
         'notifications:read',
         'notifications:write',
         'reviews:read',
-        'reviews:write'
+        'reviews:write',
+        'storage:read',
+        'storage:write'
     ]),
     admin: Object.freeze([
         'admin:*',
@@ -80,7 +82,9 @@ const ROLE_SCOPE_FALLBACK = Object.freeze({
         'notifications:read',
         'notifications:write',
         'reviews:read',
-        'reviews:write'
+        'reviews:write',
+        'storage:read',
+        'storage:write'
     ])
 })
 
@@ -565,6 +569,13 @@ app.use(
     requireRole('customer', 'driver', 'admin'),
     requireAnyScope('reviews:read', 'reviews:write', 'admin:*'),
     proxy(process.env.REVIEW_SERVICE_URL || 'http://review-service:3006', { '^/': '/api/reviews/' })
+)
+app.use(
+    '/api/storage',
+    authenticateToken,
+    requireRole('driver', 'admin'),
+    requireAnyScope('storage:read', 'storage:write', 'admin:*'),
+    proxy(process.env.STORAGE_SERVICE_URL || 'http://storage-service:3015', { '^/': '/api/storage/' })
 )
 
 app.get('/', (req, res) => {

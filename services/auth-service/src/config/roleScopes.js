@@ -31,7 +31,9 @@ const ROLE_SCOPES = Object.freeze({
     'notifications:read',
     'notifications:write',
     'reviews:read',
-    'reviews:write'
+    'reviews:write',
+    'storage:read',
+    'storage:write'
   ]),
   admin: Object.freeze([
     'admin:*',
@@ -54,7 +56,9 @@ const ROLE_SCOPES = Object.freeze({
     'notifications:read',
     'notifications:write',
     'reviews:read',
-    'reviews:write'
+    'reviews:write',
+    'storage:read',
+    'storage:write'
   ])
 })
 

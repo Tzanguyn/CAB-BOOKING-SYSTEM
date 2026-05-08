@@ -20,7 +20,7 @@ function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider loginPath="/admin/login">
+        <AuthProvider loginPath="/admin/login" allowedRoles={['admin']}>
           <SocketProvider>
             <BrowserRouter>
               <OfflineDetector />
